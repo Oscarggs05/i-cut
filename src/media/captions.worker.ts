@@ -24,25 +24,20 @@ self.onmessage = async (e: MessageEvent<{ audio: Float32Array; model: string; la
       const progress_callback = (p: unknown) => post('progress', p);
       const { pipeline } = await load();
       const make = pipeline as unknown as (task: string, model: string, opts: Record<string, unknown>) => Promise<Asr>;
-      const gpu = (navigator as unknown as { gpu?: unknown }).gpu;
-      asr = null;
-      if (gpu) {
-        try {
-          asr = await make('automatic-speech-recognition', model, { progress_callback, device: 'webgpu', dtype: { encoder_model: 'fp32', decoder_model_merged: 'q4' } });
-        } catch (err) {
-          post('log', 'WebGPU no disponible, usando WASM: ' + String(err));
-        }
-      }
-      if (!asr) asr = await make('automatic-speech-recognition', model, { progress_callback, device: 'wasm', dtype: 'q8' });
+      // WASM with 8-bit weights: the same ~80 MB download and the same
+      // result on every iPhone. WebGPU needs float weights (2-3x larger)
+      // and is still new in Safari.
+      asr = await make('automatic-speech-recognition', model, { progress_callback, device: 'wasm', dtype: 'q8' });
       loaded = model;
     }
     post('status', 'transcribing');
     const out = await asr(audio, {
-      return_timestamps: true,
+      // Word timestamps (needs the *_timestamped models) give exact sync.
+      return_timestamps: 'word',
       chunk_length_s: 30,
       stride_length_s: 5,
       task: 'transcribe',
-      ...(language !== 'auto' ? { language } : {}),
+      language,
     });
     post('result', out);
   } catch (err) {

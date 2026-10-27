@@ -3,6 +3,7 @@ import type { MediaClip } from '../../types';
 import { useEditor } from '../../store/editor';
 import { findSelected, updateSelected } from '../../store/actions';
 import { CAPTION_LANGS, CAPTION_MODELS, captionClips, transcribe, type CaptionProgress } from '../../media/captions';
+import { projectDuration } from '../../engine/timeline';
 import { Chips, Sheet, Slider, Swatches, Toggle } from '../controls';
 
 const S = () => useEditor.getState();
@@ -42,7 +43,13 @@ export function CaptionsSheet() {
     try {
       const segs = await transcribe(S().project!, model, lang, setProg);
       if (!segs.length) { setErr('No se ha detectado voz en el audio.'); return; }
-      const clips = captionClips(segs, words);
+      // Whisper can run a little past the end; don't let captions make the
+      // video longer than the footage.
+      const p = S().project!;
+      const end = projectDuration({ ...p, texts: p.texts.filter((t) => !t.caption) });
+      const clips = captionClips(segs, words)
+        .filter((c) => c.start < end - 0.05)
+        .map((c) => ({ ...c, duration: Math.min(c.duration, end - c.start) }));
       S().update((d) => { d.texts = [...d.texts.filter((t) => !t.caption), ...clips]; });
       S().showToast(`${clips.length} subtítulos añadidos`);
       S().setSheet(null);
@@ -55,7 +62,7 @@ export function CaptionsSheet() {
 
   const label = prog
     ? prog.stage === 'audio' ? 'Preparando audio…'
-      : prog.stage === 'download' ? `Descargando modelo… ${Math.round(prog.fraction * 100)}%`
+      : prog.stage === 'download' ? `Descargando modelo… ${Math.round(prog.fraction * 100)}% (${(prog.mb ?? 0).toFixed(0)} MB)`
         : 'Transcribiendo en tu iPhone…'
     : '';
 

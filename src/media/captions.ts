@@ -4,19 +4,23 @@ import { newTextClip, projectDuration } from '../engine/timeline';
 import { library } from './library';
 
 export const CAPTION_MODELS = [
-  { id: 'onnx-community/whisper-base', label: 'Preciso (~80 MB)' },
-  { id: 'onnx-community/whisper-tiny', label: 'Rápido (~40 MB)' },
+  { id: 'onnx-community/whisper-base_timestamped', label: 'Preciso (~80 MB)' },
+  { id: 'onnx-community/whisper-tiny_timestamped', label: 'Rápido (~40 MB)' },
 ];
 
+// Whisper in Transformers.js doesn't detect the language (it falls back to
+// English), so the language is always chosen explicitly.
 export const CAPTION_LANGS = [
   { id: 'spanish', label: 'Español' },
   { id: 'english', label: 'Inglés' },
-  { id: 'auto', label: 'Detectar' },
-];
+  { id: 'catalan', label: 'Catalán' },
+  { id: 'portuguese', label: 'Portugués' },
+  { id: 'french', label: 'Francés' },
+  { id: 'italian', label: 'Italiano' },
+  { id: 'german', label: 'Alemán' },
+]
 
-export interface CaptionProgress { stage: 'audio' | 'download' | 'transcribing'; fraction: number }
-
-let worker: Worker | null = null;
+export interface CaptionProgress { stage: 'audio' | 'download' | 'transcribing'; fraction: number; mb?: number }
 
 /** Mixes the project audio at 16 kHz mono, which is what Whisper expects. */
 async function projectAudio16k(p: Project): Promise<Float32Array> {
@@ -34,7 +38,11 @@ async function projectAudio16k(p: Project): Promise<Float32Array> {
   return out;
 }
 
-export async function transcribe(p: Project, model: string, language: string, onProgress: (p: CaptionProgress) => void): Promise<{ text: string; start: number; end: number }[]> {
+let worker: Worker | null = null;
+
+type Segment = { text: string; start: number; end: number };
+
+export async function transcribe(p: Project, model: string, language: string, onProgress: (p: CaptionProgress) => void): Promise<Segment[]> {
   onProgress({ stage: 'audio', fraction: 0 });
   const audio = await projectAudio16k(p);
   if (!worker) worker = new Worker(new URL('./captions.worker.ts', import.meta.url), { type: 'module' });
@@ -45,44 +53,56 @@ export async function transcribe(p: Project, model: string, language: string, on
       const { type, data } = e.data;
       if (type === 'progress' && data?.status === 'progress' && data.file) {
         files.set(data.file, { loaded: data.loaded ?? 0, total: data.total ?? 0 });
+        // Only the model weights matter for the bar; config files are tiny
+        // and would make it jump to 100 % straight away.
         let l = 0, t = 0;
-        for (const f of files.values()) { l += f.loaded; t += f.total; }
-        onProgress({ stage: 'download', fraction: t ? l / t : 0 });
+        for (const [name, f] of files) if (name.endsWith('.onnx')) { l += f.loaded; t += f.total; }
+        onProgress({ stage: 'download', fraction: t ? l / t : 0, mb: l / 1e6 });
       } else if (type === 'status') {
         onProgress({ stage: 'transcribing', fraction: 0 });
       } else if (type === 'result') {
         const chunks = (data.chunks ?? []) as { text: string; timestamp: [number, number | null] }[];
-        resolve(chunks.map((c) => ({ text: c.text.trim(), start: c.timestamp[0], end: c.timestamp[1] ?? c.timestamp[0] + 2 })).filter((c) => c.text));
+        resolve(chunks.map((c) => ({ text: c.text.trim(), start: c.timestamp[0], end: c.timestamp[1] ?? c.timestamp[0] + 0.5 })).filter((c) => c.text));
       } else if (type === 'error') {
         reject(new Error(data));
-      } else if (type === 'log') {
-        console.info(data);
       }
     };
-    w.onerror = (e) => reject(new Error(e.message || 'Error en el reconocimiento de voz'));
+    w.onerror = (e) => {
+      // A crashed worker can't be reused.
+      worker?.terminate();
+      worker = null;
+      reject(new Error(e.message || 'Error en el reconocimiento de voz'));
+    };
     w.postMessage({ audio, model, language }, [audio.buffer]);
   });
 }
 
-/** Splits segments into short, punchy lines (TikTok style). */
-export function captionClips(segs: { text: string; start: number; end: number }[], maxWords: number): TextClip[] {
-  const out: TextClip[] = [];
-  for (const s of segs) {
-    const words = s.text.split(/\s+/).filter(Boolean);
-    const n = Math.max(1, Math.ceil(words.length / maxWords));
-    const len = Math.max(0.2, s.end - s.start);
-    for (let i = 0; i < n; i++) {
-      const part = words.slice(i * maxWords, (i + 1) * maxWords).join(' ');
-      const c = newTextClip(s.start + (len * i) / n, false, part);
-      c.duration = Math.max(0.2, len / n);
-      Object.assign(c, {
-        caption: true, size: 64, font: 'Montserrat', bold: true, color: '#ffffff',
-        strokeColor: '#000000', strokeWidth: 7, shadow: false,
-      });
-      c.transform.y = 0.3;
-      c.animIn = { id: 'pop', duration: 0.18 };
-      out.push(c);
-    }
-  }
-  return out;
+/** Groups timed words into short, punchy lines (TikTok style). */
+export function captionClips(words: Segment[], maxWords: number): TextClip[] {
+  const lines: Segment[][] = [];
+  let cur: Segment[] = [];
+  words.forEach((w, i) => {
+    cur.push(w);
+    const next = words[i + 1];
+    const sentenceEnd = /[.?!…]$/.test(w.text);
+    const pause = next ? next.start - w.end > 0.6 : true;
+    if (cur.length >= maxWords || sentenceEnd || pause) { lines.push(cur); cur = []; }
+  });
+  if (cur.length) lines.push(cur);
+  return lines.map((ws, i) => {
+    const start = ws[0].start;
+    let end = ws[ws.length - 1].end;
+    // Close small gaps so captions don't flicker between lines.
+    const nextStart = lines[i + 1]?.[0].start;
+    if (nextStart !== undefined && nextStart - end < 0.35) end = nextStart;
+    const c = newTextClip(start, false, ws.map((w) => w.text).join(' '));
+    c.duration = Math.max(0.25, end - start);
+    Object.assign(c, {
+      caption: true, size: 76, font: 'Montserrat', bold: true, color: '#ffffff',
+      strokeColor: '#000000', strokeWidth: 8, shadow: false,
+    });
+    c.transform.y = 0.28;
+    c.animIn = { id: 'pop', duration: 0.15 };
+    return c;
+  });
 }

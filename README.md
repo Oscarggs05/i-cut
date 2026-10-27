@@ -2,7 +2,7 @@
 
 Editor de vídeo gratuito para iPhone, al estilo CapCut. Todo se procesa en el propio teléfono: sin marcas de agua, sin cuenta, sin pagos y sin subir tus vídeos a ningún servidor.
 
-Es una app web instalable (PWA): se abre desde Safari, se añade a la pantalla de inicio y a partir de ahí funciona a pantalla completa como una app, incluso sin conexión.
+Es una app web instalable (PWA): se abre desde Safari, se añade a la pantalla de inicio y a partir de ahí funciona a pantalla completa como una app, incluso sin conexión (las fuentes también se guardan; los subtítulos necesitan internet solo la primera vez, para descargar el modelo).
 
 ## Funciones
 
@@ -28,7 +28,7 @@ Es una app web instalable (PWA): se abre desde Safari, se añade a la pantalla d
 - Texto con 12 fuentes, estilos predefinidos, color, contorno, fondo, sombra, alineación, tamaño y espaciado.
 - Más de 70 stickers y emojis.
 - Efecto máquina de escribir y todas las animaciones.
-- Subtítulos automáticos (beta) con Whisper ejecutándose en el propio iPhone.
+- Subtítulos automáticos con Whisper ejecutándose en el propio iPhone, sincronizados palabra a palabra. Eliges el idioma (español, inglés, catalán, portugués, francés, italiano o alemán) y el modelo: «Preciso» (~80 MB) o «Rápido» (~40 MB). El modelo se descarga una sola vez y queda guardado.
 
 **Audio**
 - Música desde la app Archivos, voz en off grabada con el micrófono, audio sacado de otro vídeo y 8 efectos de sonido generados en el dispositivo.
