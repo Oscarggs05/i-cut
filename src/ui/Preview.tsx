@@ -79,7 +79,7 @@ export function Preview() {
   useLayoutEffect(() => {
     const el = wrapRef.current!;
     const fit = () => {
-      const W = el.clientWidth - 16, H = el.clientHeight - 8;
+      const W = el.clientWidth - 8, H = el.clientHeight - 4;
       let w = W, h = W / ratio;
       if (h > H) { h = H; w = H * ratio; }
       setStage({ w: Math.floor(w), h: Math.floor(h) });
