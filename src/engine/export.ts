@@ -12,6 +12,7 @@ import { audioSegments, renderMix } from './audio';
 import { Player } from './player';
 import { Renderer, type FrameRef } from './renderer';
 import { buildScene, type MediaLayer } from './scene';
+import { loadProjectFonts } from './text';
 import { aspectRatio, outputSize, projectDuration } from './timeline';
 
 export type Quality = 'low' | 'medium' | 'high';
@@ -116,7 +117,7 @@ export async function exportProject(p: Project, o: ExportOptions, onProgress: Pr
   if (!codec) return exportRealtime(p, o, onProgress, signal);
 
   onProgress(0, 'Preparando audio…');
-  await document.fonts?.ready;
+  await loadProjectFonts(p);
   const segs = audioSegments(p);
   const buffers = new Map<string, AudioBuffer | null>();
   for (const s of segs) if (!buffers.has(s.asset.id)) buffers.set(s.asset.id, await library.audioBuffer(s.asset));
@@ -229,6 +230,7 @@ export async function exportRealtime(p: Project, o: ExportOptions, onProgress: P
   const player = new Player(canvas, p);
   player.resize(width, height);
   onProgress(0, 'Preparando…');
+  await loadProjectFonts(p);
   for (const s of audioSegments(p)) await library.audioBuffer(s.asset);
   player.seek(0);
   await new Promise((r) => setTimeout(r, 800));

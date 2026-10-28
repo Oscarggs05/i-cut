@@ -1,4 +1,4 @@
-import type { TextClip } from '../types';
+import type { Project, TextClip } from '../types';
 import { fontCss } from './presets';
 
 export interface TextImage {
@@ -122,4 +122,16 @@ export function renderText(c: TextClip, scale: number, chars = 1): TextImage {
 
 export function clearTextCache() {
   cache.clear();
+}
+
+/**
+ * Loads every web font the project's texts use and drops renders made with a
+ * fallback font, so an export never starts with the wrong typeface.
+ */
+export async function loadProjectFonts(p: Project) {
+  if (!document.fonts) return;
+  const fonts = new Set(p.texts.map((c) => `${c.italic ? 'italic ' : ''}${c.bold ? '700' : '400'} 40px ${fontCss(c.font)}`));
+  await Promise.all([...fonts].map((f) => document.fonts.load(f).catch(() => [])));
+  await document.fonts.ready;
+  clearTextCache();
 }
