@@ -29,6 +29,9 @@ export function ChromaSheet() {
   );
 }
 
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const remaining = (s: number) => s < 60 ? `~${Math.max(5, Math.ceil(s / 5) * 5)} s` : `~${Math.round(s / 60)} min`;
+
 export function CaptionsSheet() {
   const [model, setModel] = useState(CAPTION_MODELS[0].id);
   const [lang, setLang] = useState('spanish');
@@ -60,11 +63,13 @@ export function CaptionsSheet() {
     }
   };
 
-  const label = prog
-    ? prog.stage === 'audio' ? 'Preparando audio…'
-      : prog.stage === 'download' ? `Descargando modelo… ${Math.round(prog.fraction * 100)}% (${(prog.mb ?? 0).toFixed(0)} MB)`
-        : 'Transcribiendo en tu iPhone…'
-    : '';
+  const pct = (f: number) => `${Math.floor(f * 100)} %`;
+  const [label, detail] = !prog ? ['', '']
+    : prog.stage === 'audio' ? ['Preparando audio…', '']
+      : prog.stage === 'download' ? [`Descargando modelo · ${pct(prog.fraction)}`, `${(prog.mb ?? 0).toFixed(0)} de ${(prog.totalMb ?? 0).toFixed(0)} MB · solo la primera vez`]
+        : prog.stage === 'loading' ? ['Cargando el modelo…', '']
+          : [`Transcribiendo · ${pct(prog.fraction)}`, `${clock(prog.done ?? 0)} de ${clock(prog.total ?? 0)} de voz · ${prog.eta === undefined ? 'calculando tiempo restante…' : `quedan ${remaining(prog.eta)}`}`];
+  const bar = !prog ? 0 : prog.stage === 'loading' ? 1 : prog.stage === 'audio' ? 0.02 : prog.fraction;
 
   return (
     <Sheet title="Subtítulos automáticos">
@@ -75,14 +80,15 @@ export function CaptionsSheet() {
       <Slider label="Palabras/línea" min={1} max={10} step={1} value={words} onChange={setWords} />
       {prog ? (
         <>
-          <div className="progress"><div style={{ width: `${prog.stage === 'download' ? Math.round(prog.fraction * 100) : prog.stage === 'transcribing' ? 100 : 5}%` }} /></div>
-          <p className="hint">{label}</p>
+          <div className="progress"><div style={{ width: `${Math.min(100, bar * 100)}%` }} /></div>
+          <p className="hint" style={{ color: 'var(--text)', marginBottom: 0 }}>{label}</p>
+          {detail && <p className="hint" style={{ marginTop: 2 }}>{detail}</p>}
         </>
       ) : (
         <button className="btn primary block" onClick={run}>{hasCaptions ? 'Volver a generar' : 'Generar subtítulos'}</button>
       )}
       {err && <p className="hint" style={{ color: 'var(--danger)' }}>{err}</p>}
-      <p className="hint">Beta. Usa Whisper directamente en el iPhone: tu audio no sale del dispositivo. El modelo se descarga una vez y queda guardado.</p>
+      <p className="hint">Usa Whisper directamente en el iPhone: tu audio no sale del dispositivo. El modelo se descarga una vez y queda guardado. «Preciso» comete la mitad de errores que «Rápido» pero tarda unas dos veces más.</p>
     </Sheet>
   );
 }
