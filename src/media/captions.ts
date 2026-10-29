@@ -1,5 +1,6 @@
-import type { Project, TextClip } from '../types';
+import type { Project, TextClip, TimedWord } from '../types';
 import { renderMix } from '../engine/audio';
+import { applyTemplate } from '../engine/presets';
 import { newTextClip, projectDuration } from '../engine/timeline';
 import { library } from './library';
 
@@ -35,8 +36,17 @@ export interface CaptionProgress {
   eta?: number;
 }
 
-/** Mixes the project audio at 16 kHz mono, which is what Whisper expects. */
-async function projectAudio16k(p: Project): Promise<Float32Array> {
+/**
+ * Mixes the project audio at 16 kHz mono, which is what Whisper expects.
+ * Voice effects are left out: a chipmunk voice can't be transcribed.
+ */
+export async function projectAudio16k(p: Project): Promise<Float32Array> {
+  p = {
+    ...p,
+    main: p.main.map((c) => ({ ...c, voice: undefined })),
+    overlays: p.overlays.map((c) => ({ ...c, voice: undefined })),
+    audios: p.audios.map((c) => ({ ...c, voice: undefined })),
+  };
   const assets = p.assets.filter((a) => a.kind !== 'image');
   for (const a of assets) await library.audioBuffer(a);
   const dur = projectDuration(p);
@@ -53,11 +63,13 @@ async function projectAudio16k(p: Project): Promise<Float32Array> {
 
 let worker: Worker | null = null;
 
-type Segment = { text: string; start: number; end: number };
+type Segment = TimedWord;
 
-export async function transcribe(p: Project, model: string, language: string, onProgress: (p: CaptionProgress) => void): Promise<Segment[]> {
+/** Transcribes the project (or `audio`, already mixed by projectAudio16k) into timed words. */
+export async function transcribe(p: Project, model: string, language: string, onProgress: (p: CaptionProgress) => void, mixed?: Float32Array): Promise<Segment[]> {
   onProgress({ stage: 'audio', fraction: 0 });
-  const audio = await projectAudio16k(p);
+  // The buffer is handed over to the worker, so a caller's copy is cloned.
+  const audio = mixed ? mixed.slice() : await projectAudio16k(p);
   if (!worker) worker = new Worker(new URL('./captions.worker.ts', import.meta.url), { type: 'module' });
   const w = worker;
   const files = new Map<string, { loaded: number; total: number; done: boolean }>();
@@ -117,8 +129,10 @@ export async function transcribe(p: Project, model: string, language: string, on
   });
 }
 
-/** Groups timed words into short, punchy lines (TikTok style). */
-export function captionClips(words: Segment[], maxWords: number): TextClip[] {
+/** Groups timed words into short, punchy lines (TikTok style) in the given template's look. */
+export function captionClips(input: Segment[], maxWords: number, template = 'karaoke'): TextClip[] {
+  // One entry per word of the caption text, so karaoke timing lines up.
+  const words = input.flatMap((w) => w.text.split(/\s+/).filter(Boolean).map((text) => ({ ...w, text })));
   const lines: Segment[][] = [];
   let cur: Segment[] = [];
   words.forEach((w, i) => {
@@ -137,12 +151,11 @@ export function captionClips(words: Segment[], maxWords: number): TextClip[] {
     if (nextStart !== undefined && nextStart - end < 0.35) end = nextStart;
     const c = newTextClip(start, false, ws.map((w) => w.text).join(' '));
     c.duration = Math.max(0.25, end - start);
-    Object.assign(c, {
-      caption: true, size: 76, font: 'Montserrat', bold: true, color: '#ffffff',
-      strokeColor: '#000000', strokeWidth: 8, shadow: false,
-    });
+    applyTemplate(c, template);
+    c.caption = true;
+    c.size = 76;
+    c.words = ws.map((w) => ({ text: w.text, start: w.start - start, end: w.end - start }));
     c.transform.y = 0.28;
-    c.animIn = { id: 'pop', duration: 0.15 };
     return c;
   });
 }

@@ -76,6 +76,15 @@ export interface MediaClip extends Visual {
   transition: { id: string; duration: number } | null;
   /** Timeline start, used only by overlay (picture-in-picture) clips. */
   start: number;
+  /** Voice changer preset (see engine/voice.ts). */
+  voice?: string;
+}
+
+/** A spoken word, in seconds from the start of its text clip. */
+export interface TimedWord {
+  text: string;
+  start: number;
+  end: number;
 }
 
 export interface TextClip extends Visual {
@@ -100,6 +109,15 @@ export interface TextClip extends Visual {
   letterSpacing: number;
   /** Created by auto captions (replaced when captions are regenerated). */
   caption?: boolean;
+  /** Word timings from speech recognition, one per word of `text`. */
+  words?: TimedWord[];
+  /** Word-by-word animation (see engine/text.ts), e.g. karaoke. */
+  wordAnim?: string;
+  /** Color of the word being spoken. */
+  highlight?: string;
+  uppercase?: boolean;
+  /** Neon glow in the highlight (or text) color. */
+  glow?: boolean;
 }
 
 export interface AudioClip {
@@ -114,6 +132,7 @@ export interface AudioClip {
   fadeIn: number;
   fadeOut: number;
   name: string;
+  voice?: string;
 }
 
 export type Clip = MediaClip | TextClip | AudioClip;
