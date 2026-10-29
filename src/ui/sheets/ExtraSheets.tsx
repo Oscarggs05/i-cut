@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import type { MediaClip } from '../../types';
+import type { MediaClip, TextClip } from '../../types';
 import { useEditor } from '../../store/editor';
 import { findSelected, updateSelected } from '../../store/actions';
 import { CAPTION_LANGS, CAPTION_MODELS, captionClips, transcribe, type CaptionProgress } from '../../media/captions';
 import { projectDuration } from '../../engine/timeline';
+import { applyTemplate, templateOf } from '../../engine/presets';
+import { TemplateGrid, WordControls } from './TextSheets';
 import { Chips, Sheet, Slider, Swatches, Toggle } from '../controls';
 
 const S = () => useEditor.getState();
@@ -32,13 +34,38 @@ export function ChromaSheet() {
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const remaining = (s: number) => s < 60 ? `~${Math.max(5, Math.ceil(s / 5) * 5)} s` : `~${Math.round(s / 60)} min`;
 
+/** Progress of audio preparation, model download and transcription. */
+export function TranscribeProgress({ prog }: { prog: CaptionProgress }) {
+  const pct = (f: number) => `${Math.floor(f * 100)} %`;
+  const [label, detail] = prog.stage === 'audio' ? ['Preparando audio…', '']
+    : prog.stage === 'download' ? [`Descargando modelo · ${pct(prog.fraction)}`, `${(prog.mb ?? 0).toFixed(0)} de ${(prog.totalMb ?? 0).toFixed(0)} MB · solo la primera vez`]
+      : prog.stage === 'loading' ? ['Cargando el modelo…', '']
+        : [`Transcribiendo · ${pct(prog.fraction)}`, `${clock(prog.done ?? 0)} de ${clock(prog.total ?? 0)} de voz · ${prog.eta === undefined ? 'calculando tiempo restante…' : `quedan ${remaining(prog.eta)}`}`];
+  const bar = prog.stage === 'loading' ? 1 : prog.stage === 'audio' ? 0.02 : prog.fraction;
+  return (
+    <>
+      <div className="progress"><div style={{ width: `${Math.min(100, bar * 100)}%` }} /></div>
+      <p className="hint" style={{ color: 'var(--text)', marginBottom: 0 }}>{label}</p>
+      {detail && <p className="hint" style={{ marginTop: 2 }}>{detail}</p>}
+    </>
+  );
+}
+
 export function CaptionsSheet() {
   const [model, setModel] = useState(CAPTION_MODELS[0].id);
   const [lang, setLang] = useState('spanish');
   const [words, setWords] = useState(4);
   const [prog, setProg] = useState<CaptionProgress | null>(null);
   const [err, setErr] = useState('');
-  const hasCaptions = useEditor((s) => s.project!.texts.some((t) => t.caption));
+  const firstCaption = useEditor((s) => s.project!.texts.find((t) => t.caption));
+  const [style, setStyle] = useState(() => (firstCaption && templateOf(firstCaption)) || 'karaoke');
+
+  /** Applies a change to every caption at once (one undo step). */
+  const setAll = (fn: (x: TextClip) => void) => S().update((d) => { for (const t of d.texts) if (t.caption) fn(t); });
+  const pick = (id: string) => {
+    setStyle(id);
+    if (firstCaption) setAll((x) => applyTemplate(x, id));
+  };
 
   const run = async () => {
     setErr('');
@@ -50,7 +77,7 @@ export function CaptionsSheet() {
       // video longer than the footage.
       const p = S().project!;
       const end = projectDuration({ ...p, texts: p.texts.filter((t) => !t.caption) });
-      const clips = captionClips(segs, words)
+      const clips = captionClips(segs, words, style)
         .filter((c) => c.start < end - 0.05)
         .map((c) => ({ ...c, duration: Math.min(c.duration, end - c.start) }));
       S().update((d) => { d.texts = [...d.texts.filter((t) => !t.caption), ...clips]; });
@@ -63,32 +90,21 @@ export function CaptionsSheet() {
     }
   };
 
-  const pct = (f: number) => `${Math.floor(f * 100)} %`;
-  const [label, detail] = !prog ? ['', '']
-    : prog.stage === 'audio' ? ['Preparando audio…', '']
-      : prog.stage === 'download' ? [`Descargando modelo · ${pct(prog.fraction)}`, `${(prog.mb ?? 0).toFixed(0)} de ${(prog.totalMb ?? 0).toFixed(0)} MB · solo la primera vez`]
-        : prog.stage === 'loading' ? ['Cargando el modelo…', '']
-          : [`Transcribiendo · ${pct(prog.fraction)}`, `${clock(prog.done ?? 0)} de ${clock(prog.total ?? 0)} de voz · ${prog.eta === undefined ? 'calculando tiempo restante…' : `quedan ${remaining(prog.eta)}`}`];
-  const bar = !prog ? 0 : prog.stage === 'loading' ? 1 : prog.stage === 'audio' ? 0.02 : prog.fraction;
-
   return (
     <Sheet title="Subtítulos automáticos">
+      <div className="hint">Estilo{firstCaption ? ' (se aplica a todos los subtítulos)' : ''}</div>
+      <TemplateGrid only="caption" value={style} onPick={pick} />
+      {firstCaption && <WordControls c={firstCaption} set={setAll} />}
       <div className="hint">Idioma</div>
       <Chips options={CAPTION_LANGS} value={lang} onChange={setLang} />
       <div className="hint">Modelo</div>
       <Chips options={CAPTION_MODELS.map((m) => ({ id: m.id, label: m.label }))} value={model} onChange={setModel} />
       <Slider label="Palabras/línea" min={1} max={10} step={1} value={words} onChange={setWords} />
-      {prog ? (
-        <>
-          <div className="progress"><div style={{ width: `${Math.min(100, bar * 100)}%` }} /></div>
-          <p className="hint" style={{ color: 'var(--text)', marginBottom: 0 }}>{label}</p>
-          {detail && <p className="hint" style={{ marginTop: 2 }}>{detail}</p>}
-        </>
-      ) : (
-        <button className="btn primary block" onClick={run}>{hasCaptions ? 'Volver a generar' : 'Generar subtítulos'}</button>
+      {prog ? <TranscribeProgress prog={prog} /> : (
+        <button className="btn primary block" onClick={run}>{firstCaption ? 'Volver a generar' : 'Generar subtítulos'}</button>
       )}
       {err && <p className="hint" style={{ color: 'var(--danger)' }}>{err}</p>}
-      <p className="hint">Usa Whisper directamente en el iPhone: tu audio no sale del dispositivo. El modelo se descarga una vez y queda guardado. «Preciso» comete la mitad de errores que «Rápido» pero tarda unas dos veces más.</p>
+      <p className="hint">Usa Whisper directamente en el iPhone: tu audio no sale del dispositivo. El modelo se descarga una vez y queda guardado. «Preciso» comete la mitad de errores que «Rápido» pero tarda unas dos veces más. Con 1 palabra por línea tendrás el estilo de una palabra cada vez.</p>
     </Sheet>
   );
 }

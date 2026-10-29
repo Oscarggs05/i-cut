@@ -23,7 +23,7 @@ export class Player {
   private dirty = true;
   private playT0 = 0;
   private playPerf0 = 0;
-  private nodes: AudioBufferSourceNode[] = [];
+  private nodes: AudioNode[] = [];
   private master: GainNode | null = null;
   private audioDest: AudioNode | null = null;
   private tick = 0;
@@ -105,7 +105,10 @@ export class Player {
   }
 
   private stopAudio() {
-    for (const n of this.nodes) { try { n.stop(); } catch { /* already stopped */ } n.disconnect(); }
+    for (const n of this.nodes) {
+      if (n instanceof AudioScheduledSourceNode) { try { n.stop(); } catch { /* already stopped */ } }
+      n.disconnect();
+    }
     this.nodes = [];
   }
 

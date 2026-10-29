@@ -28,6 +28,8 @@ const P: Record<string, string> = {
   flipV: 'M3 12h18M7 8l5-4 5 4zM7 16l5 4 5-4z',
   opacity: 'M12 2.7l5.7 5.6a8 8 0 11-11.4 0z',
   freeze: 'M12 2v20M2 12h20M5 5l14 14M19 5L5 19',
+  voice: 'M2 12h2M6 8v8M10 4v16M14 9v6M18 6v12M22 11v2',
+  silence: 'M2 12h3M5 8v8M8 10v4M16 10v4M19 8v8M19 12h3M10.5 7l3 10M13.5 7l-3 10',
   mic: 'M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v3',
   extract: 'M12 3v12M7 10l5 5 5-5M5 21h14',
   plus: 'M12 5v14M5 12h14',
