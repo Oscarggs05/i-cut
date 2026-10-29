@@ -1,6 +1,7 @@
 import type {
   Adjust, AspectId, Asset, AudioClip, MediaClip, Project, TextClip, Visual,
 } from '../types';
+import { curveDuration, curveLocal, curveSource, curveSpeed } from './speed';
 
 export const uid = () =>
   Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -102,8 +103,33 @@ export function newAudioClip(asset: Asset, start: number): AudioClip {
   };
 }
 
-/** Duration of a media clip on the timeline (speed applied). */
-export const clipDuration = (c: MediaClip | AudioClip) => (c.out - c.in) / c.speed;
+const curveOf = (c: MediaClip | AudioClip) => c.curve ?? null;
+
+/** Duration of a media clip on the timeline (speed or speed curve applied). */
+export function clipDuration(c: MediaClip | AudioClip): number {
+  const cv = curveOf(c);
+  return cv ? curveDuration(cv, c.out - c.in) : (c.out - c.in) / c.speed;
+}
+
+/** Source seconds from `in` reached `local` seconds into the clip. */
+export function sourceOffset(c: MediaClip | AudioClip, local: number): number {
+  const cv = curveOf(c);
+  return cv ? curveSource(cv, c.out - c.in, local) : local * c.speed;
+}
+
+/** Timeline seconds from the clip start where source time `src` plays. */
+export function localAtSource(c: MediaClip | AudioClip, src: number): number {
+  const cv = curveOf(c);
+  return cv ? curveLocal(cv, c.out - c.in, src - c.in) : (src - c.in) / c.speed;
+}
+
+/** Playback speed `local` seconds into the clip. */
+export function speedAt(c: MediaClip | AudioClip, local: number): number {
+  const cv = curveOf(c);
+  if (!cv) return c.speed;
+  const len = c.out - c.in;
+  return curveSpeed(cv, len > 0 ? curveSource(cv, len, local) / len : 0);
+}
 
 export interface MainLayout {
   clip: MediaClip;
@@ -192,7 +218,7 @@ export function outputSize(ratio: number, shortSide: number): { width: number; h
 
 /** Source time inside a clip for a timeline time. */
 export function sourceTime(c: MediaClip | AudioClip, start: number, t: number): number {
-  return c.in + (t - start) * c.speed;
+  return c.in + sourceOffset(c, t - start);
 }
 
 export function findAsset(p: Project, id: string): Asset | undefined {

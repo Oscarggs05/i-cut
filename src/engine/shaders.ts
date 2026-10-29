@@ -37,10 +37,20 @@ vec2 cbcr(vec3 c) { return vec2(-0.1687 * c.r - 0.3313 * c.g + 0.5 * c.b, 0.5 * 
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
+uniform vec4 u_stab;
+uniform float u_stabOn, u_aspect;
+
 vec2 toUV(vec2 l) {
   l = clamp(l, 0.0, 1.0);
   if (u_flip.x > 0.5) l.x = 1.0 - l.x;
   if (u_flip.y > 0.5) l.y = 1.0 - l.y;
+  if (u_stabOn > 0.5) {
+    // Stabilization: source = R(-a) * (shown / zoom - shift), in pixel-proportional units.
+    vec2 k = vec2(u_aspect, 1.0);
+    vec2 p = (l - 0.5) * k / u_stab.w - u_stab.xy * k;
+    float c = cos(u_stab.z), s = sin(u_stab.z);
+    l = clamp(mat2(c, -s, s, c) * p / k + 0.5, 0.0, 1.0);
+  }
   return u_uvRect.xy + l * u_uvRect.zw;
 }
 vec4 samp(vec2 l) { return texture(u_tex, toUV(l)); }

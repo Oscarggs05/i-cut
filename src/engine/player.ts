@@ -8,7 +8,7 @@ import { audioSegments, scheduleMix } from './audio';
 import { Renderer, type FrameProvider, type LayerBounds } from './renderer';
 import { buildScene, mediaInWindow, type MediaLayer } from './scene';
 import { clearTextCache } from './text';
-import { clipDuration, findAsset, projectDuration, sourceTime } from './timeline';
+import { clipDuration, findAsset, projectDuration, sourceTime, speedAt } from './timeline';
 
 interface VideoState { el: HTMLVideoElement; frames: number; pending: number | null; assetId: string; lastUse: number }
 
@@ -181,7 +181,9 @@ export class Player {
       const active = t >= start && t < start + d;
       const target = active ? Math.min(sourceTime(clip, start, t), clip.out - 0.01) : clip.in;
       if (this.playing && active) {
-        if (Math.abs(v.el.playbackRate - clip.speed) > 0.001) v.el.playbackRate = clip.speed;
+        // Speed curves change the rate as the clip plays; small steps are skipped to keep iOS smooth.
+        const rate = Math.max(0.0625, Math.min(16, speedAt(clip, t - start)));
+        if (Math.abs(v.el.playbackRate - rate) > rate * 0.03) v.el.playbackRate = rate;
         if (v.el.paused) {
           this.setVideoTime(v, target);
           v.el.play().catch(() => { /* will retry next frame */ });

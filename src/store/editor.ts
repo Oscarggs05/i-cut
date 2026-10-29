@@ -8,7 +8,7 @@ const HISTORY = 80;
 export type SheetId =
   | 'speed' | 'volume' | 'filters' | 'adjust' | 'effects' | 'animation' | 'transform' | 'opacity'
   | 'text' | 'textStyle' | 'textTemplates' | 'stickers' | 'transition' | 'canvas' | 'background' | 'audio' | 'export'
-  | 'duration' | 'record' | 'overlayAdd' | 'chroma' | 'captions' | 'voice' | 'cleanup' | null;
+  | 'duration' | 'record' | 'overlayAdd' | 'chroma' | 'captions' | 'voice' | 'cleanup' | 'keyframes' | 'stabilize' | null;
 
 interface EditorState {
   project: Project | null;

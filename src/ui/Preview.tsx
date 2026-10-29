@@ -4,6 +4,8 @@ import type { LayerBounds } from '../engine/renderer';
 import { aspectRatio } from '../engine/timeline';
 import { getPlayer, setPlayer, useEditor } from '../store/editor';
 import { deleteSelected, findSelected } from '../store/actions';
+import { clipStart, setSelectedProps } from '../store/clipActions';
+import { valueAt } from '../engine/keyframes';
 import type { MediaClip, Selection, TextClip } from '../types';
 
 type Mode =
@@ -111,17 +113,18 @@ export function Preview() {
     return order.find((l) => inside(l, p.x, p.y)) ?? null;
   };
 
+  // Transforms as seen at the playhead, so gestures also work on keyframed clips.
   const transformOf = (sel: Selection) => {
-    const c = findSelected(S().project!, sel) as MediaClip | TextClip | null;
-    return c && 'transform' in c ? c.transform : null;
+    const p = S().project!;
+    const c = findSelected(p, sel) as MediaClip | TextClip | null;
+    if (!c || !('transform' in c)) return null;
+    const t = S().time - clipStart(p, sel);
+    return { x: valueAt(c, 'x', t), y: valueAt(c, 'y', t), scale: valueAt(c, 'scale', t), rotation: valueAt(c, 'rotation', t) };
   };
 
   const setTransform = (sel: Selection, t: Partial<MediaClip['transform']>) => {
-    if (!sel) return;
-    S().update((d) => {
-      const c = findSelected(d, sel) as MediaClip | TextClip | null;
-      if (c && 'transform' in c) Object.assign(c.transform, t);
-    }, `${sel.id}:gesture`);
+    if (!sel || sel.id !== S().selection?.id) return;
+    setSelectedProps(t, 'gesture');
   };
 
   const startPinch = (sel: Selection) => {

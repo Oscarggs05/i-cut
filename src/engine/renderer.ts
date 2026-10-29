@@ -1,6 +1,8 @@
 import type { Project, Visual } from '../types';
 import { effectIndex, filterById, transitionIndex } from './presets';
 import { animState, type MediaLayer, type Scene } from './scene';
+import { resolveVisual } from './keyframes';
+import { stabAt, type StabCorr } from './stabilize';
 import { BLUR_FRAG, LAYER_FRAG, TRANSITION_FRAG, VERT } from './shaders';
 import { renderText } from './text';
 
@@ -221,7 +223,7 @@ export class Renderer {
 
   /** Draws a textured layer into the bound target of size resW x resH. */
   private drawTex(tex: TexEntry, cx: number, cy: number, w: number, h: number, rot: number, resW: number, resH: number,
-    opts: { visual: Visual | null; flipH?: boolean; flipV?: boolean; opacity: number; rect?: [number, number, number, number]; time: number; effect: string; effAmt: number }) {
+    opts: { visual: Visual | null; flipH?: boolean; flipV?: boolean; opacity: number; rect?: [number, number, number, number]; time: number; effect: string; effAmt: number; stab?: StabCorr | null }) {
     const gl = this.gl;
     const P = this.layer;
     gl.useProgram(P.p);
@@ -233,6 +235,12 @@ export class Renderer {
     gl.uniform2f(this.loc(P, 'u_flip'), opts.flipH ? 1 : 0, opts.flipV ? 1 : 0);
     gl.uniform2f(this.loc(P, 'u_px'), 1 / Math.max(1, Math.abs(w)), 1 / Math.max(1, Math.abs(h)));
     gl.uniform1f(this.loc(P, 'u_opacity'), opts.opacity);
+    const sc = opts.stab;
+    gl.uniform1f(this.loc(P, 'u_stabOn'), sc ? 1 : 0);
+    if (sc) {
+      gl.uniform4f(this.loc(P, 'u_stab'), sc.dx, sc.dy, sc.da, sc.zoom);
+      gl.uniform1f(this.loc(P, 'u_aspect'), tex.w / Math.max(1, tex.h));
+    }
     this.setGrade(opts.visual, opts.time, opts.effect, opts.effAmt);
     this.drawQuad();
   }
@@ -270,9 +278,8 @@ export class Renderer {
     this.drawQuad();
   }
 
-  private mediaGeometry(layer: MediaLayer, tex: TexEntry) {
+  private mediaGeometry(layer: MediaLayer, tex: TexEntry, v = resolveVisual(layer.clip, layer.localT)) {
     const W = this.width, H = this.height;
-    const v = layer.clip;
     const st = animState(v, layer.localT, layer.duration, v.effect.id, v.effect.intensity);
     const s0 = Math.min(W / tex.w, H / tex.h);
     const scale = v.transform.scale * st.scale;
@@ -287,13 +294,14 @@ export class Renderer {
   }
 
   private drawMedia(layer: MediaLayer, tex: TexEntry, out: LayerBounds[], kind: LayerBounds['kind']) {
-    const g = this.mediaGeometry(layer, tex);
-    const v = layer.clip;
+    const v = resolveVisual(layer.clip, layer.localT);
+    const g = this.mediaGeometry(layer, tex, v);
     const gl = this.gl;
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     this.drawTex(tex, g.cx, g.cy, g.w, g.h, g.rot, this.width, this.height, {
       visual: v, flipH: v.flipH, flipV: v.flipV, opacity: g.opacity, time: layer.localT, effect: v.effect.id, effAmt: v.effect.intensity,
+      stab: stabAt(layer.clip, layer.sourceTime),
     });
     out.push(bounds(v.id, kind, g.cx, g.cy, g.w, g.h, g.rot));
   }
@@ -348,7 +356,7 @@ export class Renderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     for (const tl of scene.texts) {
-      const c = tl.clip;
+      const c = resolveVisual(tl.clip, tl.localT);
       const st = animState(c, tl.localT, tl.duration, c.effect.id, c.effect.intensity);
       const img = renderText(c, k, st.chars, tl.localT);
       const tex = this.texture({ key: 'text:' + c.id, src: img.canvas, width: img.canvas.width, height: img.canvas.height, version: img.key });

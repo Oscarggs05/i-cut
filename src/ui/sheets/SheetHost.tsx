@@ -4,6 +4,7 @@ import {
 } from './ClipSheets';
 import { StickersSheet, TextSheet } from './TextSheets';
 import { CaptionsSheet, ChromaSheet } from './ExtraSheets';
+import { KeyframesSheet, StabilizeSheet } from './MotionSheets';
 import { CleanupSheet, VoiceSheet } from './AudioFxSheets';
 import { AudioSheet, BackgroundSheet, CanvasSheet, RecordSheet, TransitionSheet } from './ProjectSheets';
 
@@ -30,6 +31,8 @@ export function SheetHost() {
     case 'record': return <RecordSheet />;
     case 'chroma': return <ChromaSheet />;
     case 'captions': return <CaptionsSheet />;
+    case 'keyframes': return <KeyframesSheet />;
+    case 'stabilize': return <StabilizeSheet />;
     case 'voice': return <VoiceSheet />;
     case 'cleanup': return <CleanupSheet />;
     default: return null;

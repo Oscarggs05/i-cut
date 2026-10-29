@@ -3,6 +3,7 @@
 
 import type { MediaClip, Project, TimedWord } from '../types';
 import { clipDuration, findAsset, layoutMain, uid } from '../engine/timeline';
+import { shiftKeyframes } from '../engine/keyframes';
 import { projectAudio16k, transcribe, type CaptionProgress } from './captions';
 
 export type Range = [number, number];
@@ -145,7 +146,8 @@ export function applyCuts(d: Project, ranges: Range[]): { seconds: number; cuts:
   for (const l of layoutMain(d.main)) {
     const c = l.clip;
     const a = findAsset(d, c.assetId);
-    const audible = a?.kind === 'video' && a.hasAudio && !c.muted && c.volume > 0;
+    // Clips with a speed curve are left whole: cutting them would change the curve's shape.
+    const audible = a?.kind === 'video' && a.hasAudio && !c.muted && c.volume > 0 && !c.curve;
     // Transitions overlap neighbours; leave those stretches alone.
     const lo = l.start + l.transIn, hi = l.end - l.transOut;
     const mine = audible ? ranges.map(([x, y]): Range => [Math.max(x, lo), Math.min(y, hi)]).filter(([x, y]) => y - x > 0.05) : [];
@@ -160,12 +162,15 @@ export function applyCuts(d: Project, ranges: Range[]): { seconds: number; cuts:
     applied.push(...mine);
     pieces.forEach(([x, y], i) => {
       const firstPiece = i === 0, lastPiece = i === pieces.length - 1;
-      main.push({
+      const piece: MediaClip = {
         ...structuredClone(c), id: firstPiece ? c.id : uid(), in: x, out: y,
         animIn: firstPiece ? c.animIn : null, fadeIn: firstPiece ? c.fadeIn : 0,
         animOut: lastPiece ? c.animOut : null, fadeOut: lastPiece ? c.fadeOut : 0,
         transition: lastPiece ? c.transition : null,
-      });
+      };
+      // Keyframes stay on the same content.
+      shiftKeyframes(piece, -(x - c.in) / c.speed);
+      main.push(piece);
     });
   }
   if (!applied.length) return { seconds: 0, cuts: 0 };

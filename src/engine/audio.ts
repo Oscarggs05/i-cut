@@ -1,8 +1,9 @@
 // One audio mixing graph for both live preview (AudioContext) and export
 // (OfflineAudioContext), so what you hear is what you export.
 
-import type { Asset, Project } from '../types';
-import { clipDuration, findAsset, layoutMain } from './timeline';
+import type { Asset, AudioClip, MediaClip, Project } from '../types';
+import { kfValue } from './keyframes';
+import { clipDuration, findAsset, layoutMain, sourceOffset, speedAt } from './timeline';
 import { pitched, voiceChain, voicePitch } from './voice';
 
 export interface AudioSegment {
@@ -17,7 +18,11 @@ export interface AudioSegment {
   fadeIn: number;
   fadeOut: number;
   voice?: string;
+  /** Set when speed or volume change over time (speed curves, keyframes). */
+  clip?: MediaClip | AudioClip;
 }
+
+const animated = (c: MediaClip | AudioClip) => !!c.curve || !!c.keyframes?.length;
 
 export function audioSegments(p: Project): AudioSegment[] {
   const segs: AudioSegment[] = [];
@@ -27,13 +32,13 @@ export function audioSegments(p: Project): AudioSegment[] {
   ];
   for (const { c, start } of media) {
     const a = findAsset(p, c.assetId);
-    if (!a || a.kind !== 'video' || !a.hasAudio || c.muted || c.volume <= 0) continue;
-    segs.push({ asset: a, start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, voice: c.voice });
+    if (!a || a.kind !== 'video' || !a.hasAudio || c.muted || (c.volume <= 0 && !c.keyframes?.length)) continue;
+    segs.push({ asset: a, start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, voice: c.voice, clip: animated(c) ? c : undefined });
   }
   for (const c of p.audios) {
     const a = findAsset(p, c.assetId);
-    if (!a || c.volume <= 0) continue;
-    segs.push({ asset: a, start: c.start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, voice: c.voice });
+    if (!a || (c.volume <= 0 && !c.keyframes?.length)) continue;
+    segs.push({ asset: a, start: c.start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, voice: c.voice, clip: animated(c) ? c : undefined });
   }
   return segs;
 }
@@ -82,6 +87,13 @@ export function scheduleMix(
       g.gain.setValueAtTime(env(fo), ctxTime(fo));
       g.gain.linearRampToValueAtTime(0, ctxTime(end));
     }
+    if (s.clip) {
+      const fx = voiceChain(ctx, s.voice, dest, at, ctxTime(end));
+      src.connect(g).connect(fx ? fx.input : dest);
+      if (scheduleAnimated(s, s.clip, src, g, buf, ratio, into, at, end - segFrom)) nodes.push(src);
+      if (fx) nodes.push(...fx.sources, fx.output);
+      continue;
+    }
     const offset = (s.offset + into * s.speed) * ratio;
     const dur = (s.duration - into) * s.speed * ratio;
     if (offset >= buf.duration) continue;
@@ -92,6 +104,34 @@ export function scheduleMix(
     if (fx) nodes.push(...fx.sources, fx.output);
   }
   return nodes;
+}
+
+const CURVE_RATE = 30;
+
+/**
+ * Speed curves and volume keyframes, as sampled automation curves. `ratio`
+ * is the voice pitch: the buffer is a time-stretched copy played faster.
+ */
+function scheduleAnimated(s: AudioSegment, c: MediaClip | AudioClip, src: AudioBufferSourceNode, g: GainNode,
+  buf: AudioBuffer, ratio: number, into: number, at: number, len: number): boolean {
+  const offset = (s.offset + sourceOffset(c, into)) * ratio;
+  if (offset >= buf.duration || len <= 0.01) return false;
+  const n = Math.max(2, Math.ceil(len * CURVE_RATE) + 1);
+  const rate = new Float32Array(n), gain = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const local = into + (i / (n - 1)) * len;
+    rate[i] = Math.max(0.0625, Math.min(16, speedAt(c, local) * ratio));
+    let fade = 1;
+    if (s.fadeIn > 0) fade = Math.min(fade, local / s.fadeIn);
+    if (s.fadeOut > 0) fade = Math.min(fade, (s.duration - local) / s.fadeOut);
+    gain[i] = Math.max(0, Math.min(1, fade)) * kfValue(c.keyframes, 'volume', local, c.volume);
+  }
+  src.playbackRate.setValueCurveAtTime(rate, at, len);
+  g.gain.cancelScheduledValues(0);
+  g.gain.setValueCurveAtTime(gain, at, len);
+  src.start(at, offset);
+  src.stop(at + len);
+  return true;
 }
 
 /** Renders the whole project mix offline. */
