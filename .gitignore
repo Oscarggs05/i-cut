@@ -4,3 +4,9 @@ dist
 .DS_Store
 test-results
 *.tsbuildinfo
+
+# Secrets and local deploy config
+.env
+.env.*
+.vercel
+.netlify

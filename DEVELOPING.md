@@ -88,6 +88,10 @@ Se ha usado [Concat](https://github.com/jub0t/Concat) como referencia de funcion
 
 Las capturas de `docs/images/app-*.jpg` se hicieron sobre la versión publicada con Chromium sin interfaz emulando un iPhone 14 Pro. Las de `docs/images/instalar-*.png` son ilustraciones de los menús de Safari (no se pueden capturar desde un servidor) que incluyen capturas reales de la app.
 
+## Licencia
+
+El código de i-cut está bajo licencia [MIT](LICENSE).
+
 ## Licencias de terceros
 
 - [Mediabunny](https://github.com/Vanilagy/mediabunny) (MPL‑2.0): lectura, decodificación y escritura de MP4.
