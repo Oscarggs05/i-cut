@@ -3,7 +3,8 @@ import type { Asset, AudioClip, MediaClip, Project, TextClip } from '../types';
 import { getPlayer, useEditor } from '../store/editor';
 import { addMedia, addText, moveMain, pickFiles } from '../store/actions';
 import { library } from '../media/library';
-import { MIN_CLIP, clipDuration, formatTime, layoutMain, packLanes, projectDuration } from '../engine/timeline';
+import { MIN_CLIP, clipDuration, formatTime, layoutMain, packLanes, projectDuration, sourceOffset } from '../engine/timeline';
+import { shiftKeyframes } from '../engine/keyframes';
 import { Icon } from './icons';
 
 const RULER = 26;
@@ -90,7 +91,7 @@ function filmstripDraw(asset: Asset, clip: MediaClip, pps: number) {
     const cw = Math.max(24, Math.min(120, h * th.aspect));
     for (let k = Math.floor(a / cw); k * cw < b; k++) {
       const x = k * cw - a;
-      const t = asset.kind === 'image' ? 0 : clip.in + (((k + 0.5) * cw) / pps) * clip.speed;
+      const t = asset.kind === 'image' ? 0 : clip.in + sourceOffset(clip, ((k + 0.5) * cw) / pps);
       let best = 0;
       for (let i = 1; i < th.times.length; i++) if (Math.abs(th.times[i] - t) < Math.abs(th.times[best] - t)) best = i;
       const img = th.images[best];
@@ -102,13 +103,13 @@ function filmstripDraw(asset: Asset, clip: MediaClip, pps: number) {
   };
 }
 
-function waveDraw(assetId: string, inT: number, speed: number, pps: number, color: string) {
+function waveDraw(clip: AudioClip, pps: number, color: string) {
   return (ctx: CanvasRenderingContext2D, a: number, b: number, h: number) => {
-    const peaks = library.peaks(assetId);
+    const peaks = library.peaks(clip.assetId);
     ctx.fillStyle = color;
     if (!peaks) { ctx.fillRect(0, h / 2 - 0.5, b - a, 1); return; }
     for (let x = a; x < b; x += 2) {
-      const t = inT + (x / pps) * speed;
+      const t = clip.in + sourceOffset(clip, x / pps);
       const v = peaks[Math.min(peaks.length - 1, Math.max(0, Math.floor(t * 50)))] ?? 0;
       const bh = Math.max(1, v * (h - 6));
       ctx.fillRect(x - a, (h - bh) / 2, 1.4, bh);
@@ -345,10 +346,14 @@ export function Timeline() {
         if (d.side === 'l') {
           const ns = Math.max(0, Math.min(o.start + o.duration - MIN_CLIP, o.start + dt));
           c.start = ns; c.duration = o.start + o.duration - ns; seekTo = ns;
+          c.keyframes = structuredClone(o.keyframes);
+          shiftKeyframes(c, c.duration - o.duration);
         } else { c.duration = Math.max(MIN_CLIP, o.duration + dt); seekTo = c.start + c.duration - 0.01; }
         return;
       }
       if (c.type === 'text' || o.type === 'text') return;
+      // With a speed curve, trims use the clip's average speed.
+      const sp = (o.out - o.in) / Math.max(1e-6, clipDuration(o));
       const asset = p.assets.find((a) => a.id === c.assetId);
       const isImage = asset?.kind === 'image';
       const maxOut = isImage ? 3600 : asset?.duration ?? o.out;
@@ -356,20 +361,23 @@ export function Timeline() {
         if (isImage && d.item === 'main') {
           c.out = Math.max(MIN_CLIP, Math.min(3600, o.out - dt));
         } else {
-          let nin = o.in + dt * o.speed;
-          nin = Math.max(isImage ? -1e9 : 0, Math.min(o.out - MIN_CLIP * o.speed, nin));
+          let nin = o.in + dt * sp;
+          nin = Math.max(isImage ? -1e9 : 0, Math.min(o.out - MIN_CLIP * sp, nin));
           if (d.item !== 'main') {
-            const shift = (nin - o.in) / o.speed;
+            const shift = (nin - o.in) / sp;
             const ns = o.start + shift;
-            if (ns < 0) nin = o.in - o.start * o.speed;
-            c.start = Math.max(0, o.start + (nin - o.in) / o.speed);
+            if (ns < 0) nin = o.in - o.start * sp;
+            c.start = Math.max(0, o.start + (nin - o.in) / sp);
           }
           if (isImage) { c.out = o.out - (nin - o.in); c.in = 0; } else c.in = nin;
         }
+        // Keyframes stay on the same content when the left edge moves.
+        c.keyframes = structuredClone(o.keyframes);
+        shiftKeyframes(c, clipDuration(c) - clipDuration(o));
         const lay = d.item === 'main' ? layoutMain(dr.main).find((l) => l.clip.id === c.id) : null;
         seekTo = lay ? lay.start : c.start;
       } else {
-        c.out = Math.max(c.in + MIN_CLIP * c.speed, Math.min(maxOut, o.out + dt * o.speed));
+        c.out = Math.max(c.in + MIN_CLIP * sp, Math.min(maxOut, o.out + dt * sp));
         const lay = d.item === 'main' ? layoutMain(dr.main).find((l) => l.clip.id === c.id) : null;
         seekTo = (lay ? lay.end : c.start + clipDuration(c)) - 0.02;
       }
@@ -383,6 +391,23 @@ export function Timeline() {
     drag.current = null;
     getPlayer()?.seek(S().time);
   };
+
+  const seekTo = (t: number) => {
+    const player = getPlayer();
+    player?.pause();
+    player?.seek(t);
+    S().setTime(Math.max(0, t), false);
+  };
+
+  // Keyframe diamonds on the selected clip; a tap jumps to the keyframe.
+  const kfMarks = (c: MediaClip | TextClip | AudioClip, start: number, w: number) => c.keyframes?.length ? (
+    <div className="kf-marks">
+      {c.keyframes.filter((k) => k.t >= -0.01 && k.t * pps <= w + 1).map((k) => (
+        <button key={k.t} className="kf-mark" style={{ left: k.t * pps }} aria-label="Ir al keyframe"
+          onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); seekTo(start + k.t + 0.001); }} />
+      ))}
+    </div>
+  ) : null;
 
   const handles = (item: ItemKind, id: string) => (
     <>
@@ -431,11 +456,12 @@ export function Timeline() {
                 <div key={c.id} className={`clip media ${sel ? 'sel' : ''} ${dv ? 'dragging' : ''}`}
                   style={{ left, width: w, transform: dv ? `translateX(${dv.dx}px) scale(1.03)` : undefined }} {...clipEvents('main', c.id)}>
                   <div className="body" style={{ boxShadow: sel ? undefined : 'inset 0 0 0 1px #000' }}>
-                    {a && <Strip clipLeft={left} width={w} height={MAIN_H} draw={filmstripDraw(a, c, pps)} deps={[libV, c.in, c.out, c.speed, pps, a.id]} />}
+                    {a && <Strip clipLeft={left} width={w} height={MAIN_H} draw={filmstripDraw(a, c, pps)} deps={[libV, c.in, c.out, c.speed, c.curve, pps, a.id]} />}
                     <span className="badge">
-                      {c.speed !== 1 ? `${+c.speed.toFixed(2)}x · ` : ''}{c.muted ? '🔇 ' : ''}{(l.end - l.start).toFixed(1)}s
+                      {c.curve ? '〰 ' : c.speed !== 1 ? `${+c.speed.toFixed(2)}x · ` : ''}{c.reversed ? '⇆ ' : ''}{c.stab?.level ? '✋ ' : ''}{c.muted ? '🔇 ' : ''}{(l.end - l.start).toFixed(1)}s
                     </span>
                   </div>
+                  {sel && !dragView && kfMarks(c, l.start, w)}
                   {sel && !dragView && handles('main', c.id)}
                 </div>
               );
@@ -469,8 +495,9 @@ export function Timeline() {
                 return (
                   <div key={c.id} className={`clip overlay ${sel ? 'sel' : ''}`} style={{ left, width: w }} {...clipEvents('overlay', c.id)}>
                     <div className="body">
-                      {a && <Strip clipLeft={left} width={w} height={LANE_H} draw={filmstripDraw(a, c, pps)} deps={[libV, c.in, c.out, c.speed, pps]} />}
+                      {a && <Strip clipLeft={left} width={w} height={LANE_H} draw={filmstripDraw(a, c, pps)} deps={[libV, c.in, c.out, c.speed, c.curve, pps]} />}
                     </div>
+                    {sel && kfMarks(c, c.start, w)}
                     {sel && handles('overlay', c.id)}
                   </div>
                 );
@@ -487,6 +514,7 @@ export function Timeline() {
                 return (
                   <div key={c.id} className={`clip text ${sel ? 'sel' : ''}`} style={{ left, width: w, ...(c.sticker ? { ['--text-clip' as string]: '#b8487a' } : {}) }} {...clipEvents('text', c.id)}>
                     <div className="body"><span className="label">{c.sticker ? '' : 'T  '}{c.text}</span></div>
+                    {sel && kfMarks(c, c.start, w)}
                     {sel && handles('text', c.id)}
                   </div>
                 );
@@ -503,9 +531,10 @@ export function Timeline() {
                 return (
                   <div key={c.id} className={`clip audio ${sel ? 'sel' : ''}`} style={{ left, width: w }} {...clipEvents('audio', c.id)}>
                     <div className="body">
-                      <Strip clipLeft={left} width={w} height={LANE_H} draw={waveDraw(c.assetId, c.in, c.speed, pps, 'rgba(160,255,215,0.75)')} deps={[libV, c.in, c.speed, pps]} />
+                      <Strip clipLeft={left} width={w} height={LANE_H} draw={waveDraw(c, pps, 'rgba(160,255,215,0.75)')} deps={[libV, c.in, c.speed, c.curve, pps]} />
                       <span className="label" style={{ fontWeight: 500, fontSize: 11 }}>♪ {c.name}</span>
                     </div>
+                    {sel && kfMarks(c, c.start, w)}
                     {sel && handles('audio', c.id)}
                   </div>
                 );

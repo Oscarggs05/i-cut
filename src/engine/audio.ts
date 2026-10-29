@@ -1,8 +1,9 @@
 // One audio mixing graph for both live preview (AudioContext) and export
 // (OfflineAudioContext), so what you hear is what you export.
 
-import type { Asset, Project } from '../types';
-import { clipDuration, findAsset, layoutMain } from './timeline';
+import type { Asset, AudioClip, MediaClip, Project } from '../types';
+import { kfValue } from './keyframes';
+import { clipDuration, findAsset, layoutMain, sourceOffset, speedAt } from './timeline';
 
 export interface AudioSegment {
   asset: Asset;
@@ -15,7 +16,11 @@ export interface AudioSegment {
   volume: number;
   fadeIn: number;
   fadeOut: number;
+  /** Set when speed or volume change over time (speed curves, keyframes). */
+  clip?: MediaClip | AudioClip;
 }
+
+const animated = (c: MediaClip | AudioClip) => !!c.curve || !!c.keyframes?.length;
 
 export function audioSegments(p: Project): AudioSegment[] {
   const segs: AudioSegment[] = [];
@@ -25,13 +30,13 @@ export function audioSegments(p: Project): AudioSegment[] {
   ];
   for (const { c, start } of media) {
     const a = findAsset(p, c.assetId);
-    if (!a || a.kind !== 'video' || !a.hasAudio || c.muted || c.volume <= 0) continue;
-    segs.push({ asset: a, start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut });
+    if (!a || a.kind !== 'video' || !a.hasAudio || c.muted || (c.volume <= 0 && !c.keyframes?.length)) continue;
+    segs.push({ asset: a, start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, clip: animated(c) ? c : undefined });
   }
   for (const c of p.audios) {
     const a = findAsset(p, c.assetId);
-    if (!a || c.volume <= 0) continue;
-    segs.push({ asset: a, start: c.start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut });
+    if (!a || (c.volume <= 0 && !c.keyframes?.length)) continue;
+    segs.push({ asset: a, start: c.start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, clip: animated(c) ? c : undefined });
   }
   return segs;
 }
@@ -76,6 +81,10 @@ export function scheduleMix(
       g.gain.linearRampToValueAtTime(0, ctxTime(end));
     }
     src.connect(g).connect(dest);
+    if (s.clip) {
+      if (scheduleAnimated(s, s.clip, src, g, buf, into, at, end - segFrom)) nodes.push(src);
+      continue;
+    }
     const offset = s.offset + into * s.speed;
     const dur = (s.duration - into) * s.speed;
     if (offset >= buf.duration) continue;
@@ -83,6 +92,31 @@ export function scheduleMix(
     nodes.push(src);
   }
   return nodes;
+}
+
+const CURVE_RATE = 30;
+
+/** Speed curves and volume keyframes, as sampled automation curves. */
+function scheduleAnimated(s: AudioSegment, c: MediaClip | AudioClip, src: AudioBufferSourceNode, g: GainNode,
+  buf: AudioBuffer, into: number, at: number, len: number): boolean {
+  const offset = s.offset + sourceOffset(c, into);
+  if (offset >= buf.duration || len <= 0.01) return false;
+  const n = Math.max(2, Math.ceil(len * CURVE_RATE) + 1);
+  const rate = new Float32Array(n), gain = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const local = into + (i / (n - 1)) * len;
+    rate[i] = Math.max(0.0625, Math.min(16, speedAt(c, local)));
+    let fade = 1;
+    if (s.fadeIn > 0) fade = Math.min(fade, local / s.fadeIn);
+    if (s.fadeOut > 0) fade = Math.min(fade, (s.duration - local) / s.fadeOut);
+    gain[i] = Math.max(0, Math.min(1, fade)) * kfValue(c.keyframes, 'volume', local, c.volume);
+  }
+  src.playbackRate.setValueCurveAtTime(rate, at, len);
+  g.gain.cancelScheduledValues(0);
+  g.gain.setValueCurveAtTime(gain, at, len);
+  src.start(at, offset);
+  src.stop(at + len);
+  return true;
 }
 
 /** Renders the whole project mix offline. */

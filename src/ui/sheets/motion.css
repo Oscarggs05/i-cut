@@ -1,0 +1,26 @@
+/* Keyframes, speed curves and long on-device jobs. */
+.kf-btn { color: var(--muted); }
+.kf-btn.has { color: var(--text); }
+.kf-btn.on { color: var(--accent); }
+.kf-btn:disabled { opacity: 0.35; }
+.kf-row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 4px; }
+.kf-row .btn:disabled { opacity: 0.35; }
+
+.kf-marks { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.kf-mark { position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: auto; display: grid; place-items: center; }
+.kf-mark::after { content: ""; width: 9px; height: 9px; background: #fff; border: 1.5px solid #000; transform: rotate(45deg); border-radius: 1px; }
+
+.curve-graph { display: block; width: 100%; height: auto; aspect-ratio: 320 / 140; background: var(--panel2); border-radius: 12px; margin-top: 10px; touch-action: none; }
+.curve-graph .grid { stroke: var(--line); stroke-width: 1; }
+.curve-graph .mid { stroke: var(--panel3); stroke-width: 1; stroke-dasharray: 4 4; }
+.curve-graph text { fill: var(--muted); font-size: 10px; }
+.curve-graph .play { stroke: #fff; stroke-width: 1.5; opacity: 0.7; }
+.curve-graph .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+.curve-graph .pt { fill: var(--panel); stroke: var(--accent); stroke-width: 2.5; }
+.curve-graph .pt.on { fill: var(--accent); }
+.btn:disabled { opacity: 0.4; }
+
+.job-card { flex-direction: column; align-items: stretch !important; min-width: 260px; }
+.job-card .progress { margin: 4px 0 0; }
+.job-foot { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-variant-numeric: tabular-nums; }
+.job-foot .btn { padding: 8px 14px; }

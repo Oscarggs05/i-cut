@@ -40,6 +40,40 @@ export interface Adjust {
   sharpen: number;
 }
 
+/** Properties that can be animated with keyframes. */
+export type KfProp = 'x' | 'y' | 'scale' | 'rotation' | 'opacity' | 'filter' | 'volume';
+
+export type Ease = 'linear' | 'smooth' | 'in' | 'out';
+
+/**
+ * A keyframe stores every animatable value of the clip at a moment.
+ * `t` is seconds from the start of the clip on the timeline.
+ */
+export interface Keyframe {
+  t: number;
+  ease: Ease;
+  v: Partial<Record<KfProp, number>>;
+}
+
+/** Speed curve: absolute speed at positions 0..1 of the source range. */
+export interface SpeedCurve {
+  id: string;
+  pts: { x: number; v: number }[];
+}
+
+/** Camera shake measured on the source, smoothed when rendering. */
+export interface Stabilize {
+  /** 1 bajo, 2 recomendado, 3 máximo. */
+  level: number;
+  /** Changes on every analysis (used as a cache key). */
+  key: string;
+  /** Source time of the first sample and samples per second. */
+  t0: number;
+  fps: number;
+  /** Camera path as [x, y, rotation] triplets: content offset from the first frame (fractions of the frame, radians). */
+  path: number[];
+}
+
 export interface Anim {
   id: string;
   duration: number;
@@ -58,6 +92,7 @@ export interface Visual {
   animLoop: Anim | null;
   /** Green-screen keying. */
   chroma?: { color: string; similarity: number; smoothness: number } | null;
+  keyframes?: Keyframe[];
 }
 
 export interface MediaClip extends Visual {
@@ -76,6 +111,11 @@ export interface MediaClip extends Visual {
   transition: { id: string; duration: number } | null;
   /** Timeline start, used only by overlay (picture-in-picture) clips. */
   start: number;
+  /** Replaces `speed` while set. */
+  curve?: SpeedCurve | null;
+  /** Set when the clip plays a reversed copy; holds what to restore. */
+  reversed?: { assetId: string; in: number; out: number } | null;
+  stab?: Stabilize | null;
 }
 
 export interface TextClip extends Visual {
@@ -114,6 +154,10 @@ export interface AudioClip {
   fadeIn: number;
   fadeOut: number;
   name: string;
+  /** Only the volume is animated on audio clips. */
+  keyframes?: Keyframe[];
+  /** Kept when the audio is extracted from a clip with a speed curve. */
+  curve?: SpeedCurve | null;
 }
 
 export type Clip = MediaClip | TextClip | AudioClip;

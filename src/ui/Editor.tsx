@@ -8,6 +8,7 @@ import { Timeline } from './Timeline';
 import { Toolbar } from './Toolbar';
 import { SheetHost } from './sheets/SheetHost';
 import { ExportFlow } from './ExportFlow';
+import { JobOverlay, KeyframeButton } from './sheets/MotionSheets';
 
 export function Editor({ onClose }: { onClose: () => void }) {
   const project = useEditor((s) => s.project)!;
@@ -50,6 +51,7 @@ export function Editor({ onClose }: { onClose: () => void }) {
         {sheet && <SheetHost />}
       </div>
       {exporting && <ExportFlow onClose={() => setExporting(false)} />}
+      <JobOverlay />
       {busy && <div className="busy"><div><span className="spinner" />{busy}</div></div>}
       {toast && <div className="toast">{toast}</div>}
     </div>
@@ -71,6 +73,7 @@ function PlayBar() {
         <Icon name={playing ? 'pause' : 'play'} size={28} fill />
       </button>
       <div className="right">
+        <KeyframeButton />
         <button className="icon-btn" aria-label="Deshacer" disabled={!canUndo} onClick={undo}><Icon name="undo" size={22} /></button>
         <button className="icon-btn" aria-label="Rehacer" disabled={!canRedo} onClick={redo}><Icon name="redo" size={22} /></button>
       </div>

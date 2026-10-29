@@ -4,6 +4,7 @@ import {
   addMedia, addText, deleteSelected, duplicateSelected, extractAudio, findSelected, freezeFrame,
   mainIndexAt, pickFiles, splitAtPlayhead, updateSelected,
 } from '../store/actions';
+import { toggleReverse } from '../store/clipActions';
 import type { MediaClip } from '../types';
 import { Icon } from './icons';
 
@@ -57,7 +58,10 @@ export function Toolbar() {
       { id: 'speed', label: 'Velocidad', icon: 'speed', run: open('speed'), hidden: !isVideo },
       { id: 'duration', label: 'Duración', icon: 'clock', run: open('duration'), hidden: isVideo },
       { id: 'volume', label: 'Volumen', icon: 'volume', run: open('volume'), hidden: !isVideo || !asset?.hasAudio },
+      { id: 'kf', label: 'Keyframes', icon: 'diamond', run: open('keyframes') },
       { id: 'anim', label: 'Animación', icon: 'anim', run: open('animation') },
+      { id: 'reverse', label: (sel as MediaClip).reversed ? 'Original' : 'Invertir', icon: 'reverse', run: () => void toggleReverse(), hidden: !isVideo },
+      { id: 'stab', label: 'Estabilizar', icon: 'stabilize', run: open('stabilize'), hidden: !isVideo },
       { id: 'filters', label: 'Filtros', icon: 'filter', run: open('filters') },
       { id: 'adjust', label: 'Ajustar', icon: 'sliders', run: open('adjust') },
       { id: 'effects', label: 'Efectos', icon: 'sparkles', run: open('effects') },
@@ -74,6 +78,7 @@ export function Toolbar() {
     tools = [
       { id: 'edit', label: 'Editar', icon: 'edit', run: open('text') },
       { id: 'style', label: 'Estilo', icon: 'palette', run: open('textStyle') },
+      { id: 'kf', label: 'Keyframes', icon: 'diamond', run: open('keyframes') },
       { id: 'anim', label: 'Animación', icon: 'anim', run: open('animation') },
       { id: 'effects', label: 'Efectos', icon: 'sparkles', run: open('effects') },
       { id: 'opacity', label: 'Opacidad', icon: 'opacity', run: open('opacity') },
@@ -84,6 +89,7 @@ export function Toolbar() {
   } else {
     tools = [
       { id: 'volume', label: 'Volumen', icon: 'volume', run: open('volume') },
+      { id: 'kf', label: 'Keyframes', icon: 'diamond', run: open('keyframes') },
       { id: 'speed', label: 'Velocidad', icon: 'speed', run: open('speed') },
       { id: 'split', label: 'Dividir', icon: 'scissors', run: splitAtPlayhead },
       { id: 'dup', label: 'Duplicar', icon: 'copy', run: duplicateSelected },

@@ -44,6 +44,10 @@ const P: Record<string, string> = {
   reset: 'M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8M3 3v5h5',
   video: 'M23 7l-7 5 7 5zM1 5h15v14H1z',
   image: 'M3 3h18v18H3zM8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM21 15l-5-5L5 21',
+  diamond: 'M12 3l9 9-9 9-9-9z',
+  next: 'M9 18l6-6-6-6',
+  reverse: 'M3 12a9 9 0 0115.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 01-15.5 6.2L3 16M3 21v-5h5',
+  stabilize: 'M2 7V3h4M18 3h4v4M22 17v4h-4M6 21H2v-4M7 9h10v6H7z',
 };
 
 export function Icon({ name, size = 24, fill = false }: { name: keyof typeof P | string; size?: number; fill?: boolean }) {

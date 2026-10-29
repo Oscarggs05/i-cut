@@ -1,8 +1,10 @@
 import type { Asset, AudioClip, MediaClip, Project, Selection, TextClip } from '../types';
 import { library } from '../media/library';
 import {
-  MIN_CLIP, clipDuration, layoutMain, newAudioClip, newMediaClip, newTextClip, uid,
+  MIN_CLIP, clipDuration, layoutMain, newAudioClip, newMediaClip, newTextClip, sourceOffset, uid,
 } from '../engine/timeline';
+import { shiftKeyframes } from '../engine/keyframes';
+import { splitCurve } from '../engine/speed';
 import { getPlayer, useEditor } from './editor';
 import { saveCover } from './db';
 
@@ -140,8 +142,9 @@ export function splitAtPlayhead() {
       const l = layout.find((x) => (sel ? x.clip.id === sel.id : true) && t > x.start + MIN_CLIP && t < x.end - MIN_CLIP);
       if (!l) return;
       const c = l.clip;
-      const cut = c.in + (t - l.start) * c.speed;
+      const cut = c.in + sourceOffset(c, t - l.start);
       const b: MediaClip = { ...structuredClone(c), id: uid(), in: cut, animIn: null, fadeIn: 0 };
+      splitTimeline(c, b, t - l.start, cut);
       c.out = cut;
       c.transition = null;
       c.animOut = null;
@@ -155,8 +158,9 @@ export function splitAtPlayhead() {
       const i = list.findIndex((x) => x.id === sel.id);
       const c = list[i];
       if (!c || t <= c.start + MIN_CLIP || t >= c.start + clipDuration(c) - MIN_CLIP) return;
-      const cut = c.in + (t - c.start) * c.speed;
+      const cut = c.in + sourceOffset(c, t - c.start);
       const b = { ...structuredClone(c), id: uid(), in: cut, start: t, fadeIn: 0 };
+      splitTimeline(c, b, t - c.start, cut);
       c.out = cut;
       c.fadeOut = 0;
       list.splice(i + 1, 0, b as never);
@@ -168,6 +172,7 @@ export function splitAtPlayhead() {
       const c = d.texts[i];
       if (!c || t <= c.start + MIN_CLIP || t >= c.start + c.duration - MIN_CLIP) return;
       const b: TextClip = { ...structuredClone(c), id: uid(), start: t, duration: c.start + c.duration - t, animIn: null };
+      shiftKeyframes(b, -(t - c.start));
       c.duration = t - c.start;
       c.animOut = null;
       d.texts.splice(i + 1, 0, b);
@@ -175,6 +180,16 @@ export function splitAtPlayhead() {
     }
   });
   if (!done) s.showToast('Mueve el cursor dentro del clip para dividirlo');
+}
+
+/** Keeps keyframes and speed curves in place on both halves of a split. */
+function splitTimeline(a: MediaClip | AudioClip, b: MediaClip | AudioClip, local: number, cut: number) {
+  shiftKeyframes(b, -local);
+  if (a.curve) {
+    const [ca, cb] = splitCurve(a.curve, (cut - a.in) / Math.max(1e-6, a.out - a.in));
+    a.curve = ca;
+    b.curve = cb;
+  }
 }
 
 export function deleteSelected() {
@@ -236,6 +251,8 @@ export function extractAudio() {
     m.muted = true;
     const a = newAudioClip(asset, start);
     Object.assign(a, { in: m.in, out: m.out, speed: m.speed, volume: m.volume, name: 'Audio extraído' });
+    if (m.curve) a.curve = structuredClone(m.curve);
+    if (m.keyframes) a.keyframes = m.keyframes.map((k) => ({ t: k.t, ease: k.ease, v: { volume: k.v.volume ?? m.volume } }));
     d.audios.push(a);
   });
   s.showToast('Audio extraído a una pista');
@@ -255,7 +272,7 @@ export async function freezeFrame() {
   if (!asset || asset.kind !== 'video') { s.showToast('Solo funciona con vídeos'); return; }
   s.setBusy('Congelando fotograma…');
   try {
-    const st = l.clip.in + (t - l.start) * l.clip.speed;
+    const st = l.clip.in + sourceOffset(l.clip, t - l.start);
     const blob = await captureFrame(asset, st);
     if (!blob) throw new Error('No se pudo capturar el fotograma');
     const img = await library.importBlob(blob, 'Congelado.png');

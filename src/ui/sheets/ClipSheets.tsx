@@ -6,6 +6,9 @@ import { ANIMS_IN, ANIMS_LOOP, ANIMS_OUT, EFFECTS, FILTERS } from '../../engine/
 import { aspectRatio, clipDuration, defaultAdjust } from '../../engine/timeline';
 import { Chips, Sheet, Slider, Toggle } from '../controls';
 import { Icon } from '../icons';
+import { setSelectedProp, setSelectedProps } from '../../store/clipActions';
+import { valueAt } from '../../engine/keyframes';
+import { SpeedCurvePanel, useLocalTime } from './MotionSheets';
 
 const S = () => useEditor.getState();
 
@@ -19,26 +22,37 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export function SpeedSheet() {
   const c = useSelected<MediaClip | AudioClip>();
+  const [tab, setTab] = useState<'normal' | 'curve'>(c?.curve ? 'curve' : 'normal');
   if (!c) return null;
   const v = Math.log10(c.speed);
-  const set = (speed: number) => updateSelected<MediaClip | AudioClip>((x) => { x.speed = Math.max(0.1, Math.min(10, speed)); }, 'speed');
+  const set = (speed: number) => updateSelected<MediaClip | AudioClip>((x) => { x.speed = Math.max(0.1, Math.min(10, speed)); x.curve = null; }, 'speed');
   return (
     <Sheet title="Velocidad">
+      {c.type === 'media' && (
+        <div className="tabs">
+          <button className={tab === 'normal' ? 'on' : ''} onClick={() => setTab('normal')}>Normal</button>
+          <button className={tab === 'curve' ? 'on' : ''} onClick={() => setTab('curve')}>Curva</button>
+        </div>
+      )}
+      {tab === 'curve' && c.type === 'media' ? <SpeedCurvePanel c={c} /> : <>
+      {c.curve && <p className="hint">Este clip usa una curva de velocidad; elegir una velocidad fija la quita.</p>}
       <Slider label="Velocidad" min={-1} max={1} step={0.01} value={v} onChange={(x) => set(Math.round(Math.pow(10, x) * 100) / 100)} format={() => `${c.speed.toFixed(2)}x`} />
       <Chips options={[0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5].map((s) => ({ id: s, label: `${s}x` }))} value={c.speed} onChange={set} />
       <p className="hint">Duración: {clipDuration(c).toFixed(1)} s. El audio cambia de tono con la velocidad.</p>
+      </>}
     </Sheet>
   );
 }
 
 export function VolumeSheet() {
   const c = useSelected<MediaClip | AudioClip>();
+  const local = useLocalTime();
   if (!c) return null;
   const d = clipDuration(c);
   const max = Math.max(0.1, Math.min(10, d / 2));
   return (
     <Sheet title="Volumen">
-      <Slider label="Volumen" min={0} max={2} value={c.volume} onChange={(v) => updateSelected<MediaClip>((x) => { x.volume = v; x.muted = false; }, 'vol')} format={pct} />
+      <Slider label="Volumen" min={0} max={2} value={valueAt(c, 'volume', local)} onChange={(v) => { if (c.type === 'media' && c.muted) updateSelected<MediaClip>((x) => { x.muted = false; }); setSelectedProp('volume', v, 'vol'); }} format={pct} />
       <Slider label="Fundido ent." min={0} max={max} step={0.1} value={Math.min(c.fadeIn, max)} onChange={(v) => updateSelected<MediaClip>((x) => { x.fadeIn = v; }, 'fi')} format={(v) => `${v.toFixed(1)}s`} />
       <Slider label="Fundido sal." min={0} max={max} step={0.1} value={Math.min(c.fadeOut, max)} onChange={(v) => updateSelected<MediaClip>((x) => { x.fadeOut = v; }, 'fo')} format={(v) => `${v.toFixed(1)}s`} />
       {c.type === 'media' && <Toggle label="Silenciar clip" on={c.muted} onChange={(m) => updateSelected<MediaClip>((x) => { x.muted = m; })} />}
@@ -65,6 +79,7 @@ function applyToAll(fn: (c: MediaClip) => void) {
 
 export function FiltersSheet() {
   const c = useSelected<MediaClip>();
+  const local = useLocalTime();
   if (!c) return null;
   return (
     <Sheet title="Filtros">
@@ -78,7 +93,7 @@ export function FiltersSheet() {
         ))}
       </div>
       {c.filter.id !== 'none' && (
-        <Slider label="Intensidad" min={0} max={1} value={c.filter.intensity} onChange={(v) => updateSelected<MediaClip>((x) => { x.filter.intensity = v; }, 'fint')} format={pct} />
+        <Slider label="Intensidad" min={0} max={1} value={valueAt(c, 'filter', local)} onChange={(v) => setSelectedProp('filter', v, 'fint')} format={pct} />
       )}
       <button className="btn block" onClick={() => { const f = { ...c.filter }; applyToAll((x) => { x.filter = { ...f }; }); }}>Aplicar a todos</button>
     </Sheet>
@@ -179,6 +194,7 @@ export function AnimationSheet() {
 export function TransformSheet() {
   const c = useSelected<MediaClip>();
   const project = useEditor((s) => s.project)!;
+  const local = useLocalTime();
   if (!c) return null;
   const asset = project.assets.find((a) => a.id === c.assetId);
   const cover = () => {
@@ -187,19 +203,20 @@ export function TransformSheet() {
     const ar = asset.width / asset.height;
     return Math.max(r / ar, ar / r);
   };
-  const t = c.transform;
+  const t = { scale: valueAt(c, 'scale', local), rotation: valueAt(c, 'rotation', local) };
+  const place = (scale: number) => setSelectedProps({ scale, x: 0, y: 0 });
   return (
     <Sheet title="Transformar">
       <div className="hscroll">
-        <button className="cell" onClick={() => updateSelected<MediaClip>((x) => { x.transform.rotation = (Math.round(x.transform.rotation / 90) * 90 + 90) % 360; })}><span className="sw"><Icon name="rotate" /></span>Girar 90°</button>
+        <button className="cell" onClick={() => setSelectedProp('rotation', (Math.round(t.rotation / 90) * 90 + 90) % 360)}><span className="sw"><Icon name="rotate" /></span>Girar 90°</button>
         <button className={`cell ${c.flipH ? 'on' : ''}`} onClick={() => updateSelected<MediaClip>((x) => { x.flipH = !x.flipH; })}><span className="sw"><Icon name="flipH" /></span>Espejo</button>
         <button className={`cell ${c.flipV ? 'on' : ''}`} onClick={() => updateSelected<MediaClip>((x) => { x.flipV = !x.flipV; })}><span className="sw"><Icon name="flipV" /></span>Voltear</button>
-        <button className="cell" onClick={() => updateSelected<MediaClip>((x) => { x.transform = { ...x.transform, scale: 1, x: 0, y: 0 }; })}><span className="sw"><Icon name="aspect" /></span>Ajustar</button>
-        <button className="cell" onClick={() => updateSelected<MediaClip>((x) => { x.transform = { ...x.transform, scale: cover(), x: 0, y: 0 }; })}><span className="sw"><Icon name="fullscreen" /></span>Rellenar</button>
-        <button className="cell" onClick={() => updateSelected<MediaClip>((x) => { x.transform = { x: 0, y: 0, scale: 1, rotation: 0 }; x.flipH = false; x.flipV = false; })}><span className="sw"><Icon name="reset" /></span>Restablecer</button>
+        <button className="cell" onClick={() => place(1)}><span className="sw"><Icon name="aspect" /></span>Ajustar</button>
+        <button className="cell" onClick={() => place(cover())}><span className="sw"><Icon name="fullscreen" /></span>Rellenar</button>
+        <button className="cell" onClick={() => updateSelected<MediaClip>((x) => { x.transform = { x: 0, y: 0, scale: 1, rotation: 0 }; x.flipH = false; x.flipV = false; delete x.keyframes; })}><span className="sw"><Icon name="reset" /></span>Restablecer</button>
       </div>
-      <Slider label="Escala" min={0.1} max={5} value={t.scale} onChange={(v) => updateSelected<MediaClip>((x) => { x.transform.scale = v; }, 'sc')} format={pct} />
-      <Slider label="Rotación" min={-180} max={180} step={1} value={t.rotation} onChange={(v) => updateSelected<MediaClip>((x) => { x.transform.rotation = v; }, 'rot')} format={(v) => `${Math.round(v)}°`} />
+      <Slider label="Escala" min={0.1} max={5} value={t.scale} onChange={(v) => setSelectedProp('scale', v, 'sc')} format={pct} />
+      <Slider label="Rotación" min={-180} max={180} step={1} value={Math.max(-180, Math.min(180, t.rotation))} onChange={(v) => setSelectedProp('rotation', v, 'rot')} format={(v) => `${Math.round(v)}°`} />
       <p className="hint">También puedes mover, pellizcar y girar con dos dedos directamente sobre la vista previa.</p>
     </Sheet>
   );
@@ -207,10 +224,11 @@ export function TransformSheet() {
 
 export function OpacitySheet() {
   const c = useSelected<MediaClip | TextClip>();
+  const local = useLocalTime();
   if (!c) return null;
   return (
     <Sheet title="Opacidad">
-      <Slider label="Opacidad" min={0} max={1} value={c.opacity} onChange={(v) => updateSelected<Visual>((x) => { x.opacity = v; }, 'op')} format={pct} />
+      <Slider label="Opacidad" min={0} max={1} value={valueAt(c, 'opacity', local)} onChange={(v) => setSelectedProp('opacity', v, 'op')} format={pct} />
     </Sheet>
   );
 }
