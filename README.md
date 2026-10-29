@@ -88,3 +88,5 @@ i-cut no se descarga de la App Store: se instala desde Safari en menos de un min
 ---
 
 ¿Quieres colaborar o ver cómo está hecha? Consulta [DEVELOPING.md](DEVELOPING.md).
+
+Código bajo licencia [MIT](LICENSE).
