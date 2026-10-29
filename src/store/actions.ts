@@ -169,6 +169,14 @@ export function splitAtPlayhead() {
       if (!c || t <= c.start + MIN_CLIP || t >= c.start + c.duration - MIN_CLIP) return;
       const b: TextClip = { ...structuredClone(c), id: uid(), start: t, duration: c.start + c.duration - t, animIn: null };
       c.duration = t - c.start;
+      // Each half keeps its own words, while the text still matches the timings.
+      if (c.words && c.words.length === c.text.split(/\s+/).filter(Boolean).length) {
+        const cut = c.duration;
+        b.words = c.words.filter((w) => w.start >= cut).map((w) => ({ ...w, start: w.start - cut, end: w.end - cut }));
+        c.words = c.words.filter((w) => w.start < cut);
+        b.text = b.words.map((w) => w.text).join(' ') || ' ';
+        c.text = c.words.map((w) => w.text).join(' ') || ' ';
+      }
       c.animOut = null;
       d.texts.splice(i + 1, 0, b);
       done = true;

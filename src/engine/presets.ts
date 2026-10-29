@@ -1,4 +1,4 @@
-import type { Adjust } from '../types';
+import type { Adjust, TextClip } from '../types';
 
 export interface FilterPreset {
   id: string;
@@ -130,3 +130,67 @@ export const STICKERS = [
   '🐱', '🦄', '💎', '💰', '🕶️', '👑', '💪', '🙏', '👉', '👈', '🤙', '✌️', 'LOL', 'WOW',
   'OMG', 'NEW', 'SALE', 'LIVE',
 ];
+
+/** Word-by-word text animations (rendered in engine/text.ts). */
+export const WORD_ANIMS = [
+  { id: 'none', label: 'Ninguna' },
+  { id: 'karaoke', label: 'Karaoke' },
+  { id: 'highlight', label: 'Resaltar' },
+  { id: 'box', label: 'Caja' },
+  { id: 'pop', label: 'Palabra a palabra' },
+  { id: 'reveal', label: 'Aparecer' },
+  { id: 'bounce', label: 'Salto' },
+  { id: 'wave', label: 'Ola' },
+];
+
+export const HIGHLIGHTS = ['#ffe600', '#3cff6b', '#00c7ff', '#ff2d55', '#ff9500', '#ff2bd6', '#ffffff', '#000000'];
+
+type TemplateStyle = Pick<TextClip, 'font' | 'bold' | 'italic' | 'color' | 'strokeColor' | 'strokeWidth' | 'bgColor' | 'bgOpacity'
+  | 'shadow' | 'letterSpacing' | 'animIn' | 'animOut' | 'animLoop' | 'wordAnim' | 'highlight' | 'uppercase' | 'glow'>;
+
+export interface TextTemplate {
+  id: string;
+  name: string;
+  /** Offered as a subtitle style too. */
+  caption: boolean;
+  style: Partial<TemplateStyle>;
+}
+
+const TEMPLATE_BASE: TemplateStyle = {
+  font: 'Montserrat', bold: true, italic: false, color: '#ffffff', strokeColor: '#000000', strokeWidth: 0,
+  bgColor: '#000000', bgOpacity: 0, shadow: false, letterSpacing: 0, animIn: null, animOut: null, animLoop: null,
+  wordAnim: 'none', highlight: '#ffe600', uppercase: false, glow: false,
+};
+
+export const TEXT_TEMPLATES: TextTemplate[] = [
+  { id: 'karaoke', name: 'Karaoke', caption: true, style: { strokeWidth: 8, wordAnim: 'karaoke', highlight: '#ffe600' } },
+  { id: 'highlight', name: 'Resaltado', caption: true, style: { strokeWidth: 10, uppercase: true, wordAnim: 'highlight', highlight: '#3cff6b' } },
+  { id: 'box', name: 'Caja', caption: true, style: { shadow: true, uppercase: true, wordAnim: 'box', highlight: '#ff2d55' } },
+  { id: 'pop', name: 'Palabra a palabra', caption: true, style: { font: 'Anton', bold: false, strokeWidth: 8, uppercase: true, wordAnim: 'pop', highlight: '#ffe600' } },
+  { id: 'reveal', name: 'Suave', caption: true, style: { shadow: true, wordAnim: 'reveal' } },
+  { id: 'bounce', name: 'Salto', caption: true, style: { strokeWidth: 8, uppercase: true, wordAnim: 'bounce', highlight: '#00c7ff' } },
+  { id: 'neon', name: 'Neón', caption: true, style: { glow: true, wordAnim: 'highlight', highlight: '#ff2bd6' } },
+  { id: 'simple', name: 'Sencillo', caption: true, style: { strokeWidth: 8, animIn: { id: 'pop', duration: 0.15 } } },
+  { id: 'tv', name: 'Televisión', caption: true, style: { bold: false, bgOpacity: 0.65, animIn: { id: 'fade', duration: 0.1 } } },
+  { id: 'typewriter', name: 'Máquina', caption: false, style: { font: 'Courier', shadow: true, animIn: { id: 'typewriter', duration: 1.2 } } },
+  { id: 'cinema', name: 'Cine', caption: false, style: { font: 'Playfair Display', bold: false, uppercase: true, letterSpacing: 14, shadow: true, animIn: { id: 'fade', duration: 0.8 }, animOut: { id: 'fade', duration: 0.6 } } },
+  { id: 'wave', name: 'Ola', caption: false, style: { font: 'Lobster', bold: false, strokeColor: '#ff2d55', strokeWidth: 6, wordAnim: 'wave' } },
+  { id: 'impact', name: 'Impacto', caption: false, style: { font: 'Anton', bold: false, uppercase: true, color: '#ffe600', strokeWidth: 10, animIn: { id: 'zoomOut', duration: 0.35 }, animLoop: { id: 'pulse', duration: 0.8 } } },
+  { id: 'label', name: 'Etiqueta', caption: false, style: { bgColor: '#ff2d55', bgOpacity: 1, animIn: { id: 'pop', duration: 0.3 }, animLoop: { id: 'wiggle', duration: 1.2 } } },
+  { id: 'retro', name: 'Retro', caption: false, style: { font: 'Press Start 2P', bold: false, color: '#00fff0', glow: true, highlight: '#ff00e5', animIn: { id: 'typewriter', duration: 1 } } },
+  { id: 'slide', name: 'Rótulo', caption: false, style: { font: 'Oswald', uppercase: true, bgOpacity: 0.8, animIn: { id: 'slideRight', duration: 0.4 }, animOut: { id: 'slideLeft', duration: 0.4 } } },
+];
+
+/** Gives a text clip the full look of a template (font, colors and animations). */
+export function applyTemplate(c: TextClip, id: string) {
+  const t = TEXT_TEMPLATES.find((x) => x.id === id);
+  if (!t) return;
+  Object.assign(c, structuredClone({ ...TEMPLATE_BASE, ...t.style }));
+}
+
+/** Which template a clip currently looks like, if any. */
+export function templateOf(c: TextClip): string | null {
+  const keys = Object.keys(TEMPLATE_BASE) as (keyof TemplateStyle)[];
+  const norm = (v: unknown) => JSON.stringify(v ?? null);
+  return TEXT_TEMPLATES.find((t) => keys.every((k) => norm(c[k] ?? TEMPLATE_BASE[k]) === norm({ ...TEMPLATE_BASE, ...t.style }[k])))?.id ?? null;
+}

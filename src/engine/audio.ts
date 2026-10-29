@@ -3,6 +3,7 @@
 
 import type { Asset, Project } from '../types';
 import { clipDuration, findAsset, layoutMain } from './timeline';
+import { pitched, voiceChain, voicePitch } from './voice';
 
 export interface AudioSegment {
   asset: Asset;
@@ -15,6 +16,7 @@ export interface AudioSegment {
   volume: number;
   fadeIn: number;
   fadeOut: number;
+  voice?: string;
 }
 
 export function audioSegments(p: Project): AudioSegment[] {
@@ -26,19 +28,20 @@ export function audioSegments(p: Project): AudioSegment[] {
   for (const { c, start } of media) {
     const a = findAsset(p, c.assetId);
     if (!a || a.kind !== 'video' || !a.hasAudio || c.muted || c.volume <= 0) continue;
-    segs.push({ asset: a, start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut });
+    segs.push({ asset: a, start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, voice: c.voice });
   }
   for (const c of p.audios) {
     const a = findAsset(p, c.assetId);
     if (!a || c.volume <= 0) continue;
-    segs.push({ asset: a, start: c.start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut });
+    segs.push({ asset: a, start: c.start, duration: clipDuration(c), offset: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, voice: c.voice });
   }
   return segs;
 }
 
 /**
  * Schedules every segment that is audible after timeline time `from`,
- * starting at context time `when`. Returns the nodes so they can be stopped.
+ * starting at context time `when`. Returns the nodes so they can be stopped
+ * (sources) and disconnected.
  */
 export function scheduleMix(
   ctx: BaseAudioContext,
@@ -47,19 +50,23 @@ export function scheduleMix(
   getBuffer: (a: Asset) => AudioBuffer | null | undefined,
   from: number,
   when: number,
-): AudioBufferSourceNode[] {
-  const nodes: AudioBufferSourceNode[] = [];
+): AudioNode[] {
+  // Sources to stop plus effect outputs to disconnect.
+  const nodes: AudioNode[] = [];
   for (const s of segs) {
     const end = s.start + s.duration;
     if (end <= from + 0.01) continue;
-    const buf = getBuffer(s.asset);
-    if (!buf) continue;
+    const raw = getBuffer(s.asset);
+    if (!raw) continue;
+    // Pitch voices play a time-stretched copy faster or slower.
+    const ratio = voicePitch(s.voice);
+    const buf = pitched(raw, ratio);
     const segFrom = Math.max(from, s.start);
     const into = segFrom - s.start;
     const at = when + (segFrom - from);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = s.speed;
+    src.playbackRate.value = s.speed * ratio;
     const g = ctx.createGain();
     const env = (t: number) => {
       let k = 1;
@@ -75,12 +82,14 @@ export function scheduleMix(
       g.gain.setValueAtTime(env(fo), ctxTime(fo));
       g.gain.linearRampToValueAtTime(0, ctxTime(end));
     }
-    src.connect(g).connect(dest);
-    const offset = s.offset + into * s.speed;
-    const dur = (s.duration - into) * s.speed;
+    const offset = (s.offset + into * s.speed) * ratio;
+    const dur = (s.duration - into) * s.speed * ratio;
     if (offset >= buf.duration) continue;
+    const fx = voiceChain(ctx, s.voice, dest, at, ctxTime(end));
+    src.connect(g).connect(fx ? fx.input : dest);
     src.start(at, offset, Math.min(dur, buf.duration - offset));
     nodes.push(src);
+    if (fx) nodes.push(...fx.sources, fx.output);
   }
   return nodes;
 }

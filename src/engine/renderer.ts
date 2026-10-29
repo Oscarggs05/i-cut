@@ -350,10 +350,12 @@ export class Renderer {
     for (const tl of scene.texts) {
       const c = tl.clip;
       const st = animState(c, tl.localT, tl.duration, c.effect.id, c.effect.intensity);
-      const img = renderText(c, k, st.chars);
+      const img = renderText(c, k, st.chars, tl.localT);
       const tex = this.texture({ key: 'text:' + c.id, src: img.canvas, width: img.canvas.width, height: img.canvas.height, version: img.key });
       if (!tex) continue;
-      const scale = c.transform.scale * st.scale;
+      // Long caption lines shrink to fit the frame instead of running off it.
+      const fit = c.caption ? Math.min(1, (W * 0.94) / (tex.w * c.transform.scale)) : 1;
+      const scale = c.transform.scale * st.scale * fit;
       const cx = W / 2 + (c.transform.x + st.dx) * W;
       const cy = H / 2 + (c.transform.y + st.dy) * H;
       const w = tex.w * scale, h = tex.h * scale;

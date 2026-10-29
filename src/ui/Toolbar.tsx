@@ -40,6 +40,10 @@ export function Toolbar() {
         if (!S().project!.main.length) { S().showToast('Añade un vídeo primero'); return; }
         S().setSheet('captions');
       } },
+      { id: 'cleanup', label: 'Silencios', icon: 'silence', run: () => {
+        if (!S().project!.main.length) { S().showToast('Añade un vídeo primero'); return; }
+        S().setSheet('cleanup');
+      } },
       { id: 'stickers', label: 'Stickers', icon: 'sticker', run: open('stickers') },
       { id: 'overlay', label: 'Superponer', icon: 'layers', run: async () => addMedia(await pickFiles('video/*,image/*'), 'overlay') },
       { id: 'effects', label: 'Efectos', icon: 'sparkles', run: onMainAtPlayhead('effects') },
@@ -57,6 +61,7 @@ export function Toolbar() {
       { id: 'speed', label: 'Velocidad', icon: 'speed', run: open('speed'), hidden: !isVideo },
       { id: 'duration', label: 'Duración', icon: 'clock', run: open('duration'), hidden: isVideo },
       { id: 'volume', label: 'Volumen', icon: 'volume', run: open('volume'), hidden: !isVideo || !asset?.hasAudio },
+      { id: 'voice', label: 'Voz', icon: 'voice', run: open('voice'), hidden: !isVideo || !asset?.hasAudio },
       { id: 'anim', label: 'Animación', icon: 'anim', run: open('animation') },
       { id: 'filters', label: 'Filtros', icon: 'filter', run: open('filters') },
       { id: 'adjust', label: 'Ajustar', icon: 'sliders', run: open('adjust') },
@@ -74,6 +79,7 @@ export function Toolbar() {
     tools = [
       { id: 'edit', label: 'Editar', icon: 'edit', run: open('text') },
       { id: 'style', label: 'Estilo', icon: 'palette', run: open('textStyle') },
+      { id: 'tpl', label: 'Plantillas', icon: 'sparkles', run: open('textTemplates'), hidden: sel.sticker },
       { id: 'anim', label: 'Animación', icon: 'anim', run: open('animation') },
       { id: 'effects', label: 'Efectos', icon: 'sparkles', run: open('effects') },
       { id: 'opacity', label: 'Opacidad', icon: 'opacity', run: open('opacity') },
@@ -85,6 +91,7 @@ export function Toolbar() {
     tools = [
       { id: 'volume', label: 'Volumen', icon: 'volume', run: open('volume') },
       { id: 'speed', label: 'Velocidad', icon: 'speed', run: open('speed') },
+      { id: 'voice', label: 'Voz', icon: 'voice', run: open('voice') },
       { id: 'split', label: 'Dividir', icon: 'scissors', run: splitAtPlayhead },
       { id: 'dup', label: 'Duplicar', icon: 'copy', run: duplicateSelected },
       { id: 'del', label: 'Eliminar', icon: 'trash', run: deleteSelected, danger: true },

@@ -4,6 +4,7 @@ import {
 } from './ClipSheets';
 import { StickersSheet, TextSheet } from './TextSheets';
 import { CaptionsSheet, ChromaSheet } from './ExtraSheets';
+import { CleanupSheet, VoiceSheet } from './AudioFxSheets';
 import { AudioSheet, BackgroundSheet, CanvasSheet, RecordSheet, TransitionSheet } from './ProjectSheets';
 
 export function SheetHost() {
@@ -20,6 +21,7 @@ export function SheetHost() {
     case 'opacity': return <OpacitySheet />;
     case 'text': return <TextSheet />;
     case 'textStyle': return <TextSheet initialTab="style" />;
+    case 'textTemplates': return <TextSheet initialTab="tpl" />;
     case 'stickers': return <StickersSheet />;
     case 'transition': return <TransitionSheet />;
     case 'canvas': return <CanvasSheet />;
@@ -28,6 +30,8 @@ export function SheetHost() {
     case 'record': return <RecordSheet />;
     case 'chroma': return <ChromaSheet />;
     case 'captions': return <CaptionsSheet />;
+    case 'voice': return <VoiceSheet />;
+    case 'cleanup': return <CleanupSheet />;
     default: return null;
   }
 }
