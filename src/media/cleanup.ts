@@ -5,6 +5,7 @@ import type { MediaClip, Project, TimedWord } from '../types';
 import { clipDuration, findAsset, layoutMain, uid } from '../engine/timeline';
 import { shiftKeyframes } from '../engine/keyframes';
 import { projectAudio16k, transcribe, type CaptionProgress } from './captions';
+import type { SpeechModel } from './models';
 
 export type Range = [number, number];
 
@@ -16,7 +17,7 @@ export interface CleanupOptions {
   fillers: boolean;
   /** Also cut filler words ("o sea", "bueno"…), not just hesitation sounds. */
   fillerWords: boolean;
-  model: string;
+  model: SpeechModel;
   language: string;
 }
 

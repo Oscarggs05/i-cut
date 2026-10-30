@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import type { AudioClip, MediaClip } from '../../types';
+import { savedModel } from '../../media/models';
+import { ModelPicker } from '../ModelPicker';
 import { useEditor } from '../../store/editor';
 import { findSelected, updateSelected } from '../../store/actions';
 import { library } from '../../media/library';
 import { VOICES, pitched, voicePitch } from '../../engine/voice';
 import { applyCuts, captionWords, findCuts } from '../../media/cleanup';
-import { CAPTION_LANGS, CAPTION_MODELS, type CaptionProgress } from '../../media/captions';
+import { CAPTION_LANGS, type CaptionProgress } from '../../media/captions';
 import { Chips, Sheet, Slider, Toggle } from '../controls';
 import { TranscribeProgress } from './ExtraSheets';
 
@@ -67,7 +69,7 @@ export function CleanupSheet() {
   const [minPause, setMinPause] = useState(0.5);
   const [margin, setMargin] = useState(0.12);
   const [fillerWords, setFillerWords] = useState(false);
-  const [model, setModel] = useState(CAPTION_MODELS[0].id);
+  const [model, setModel] = useState(savedModel);
   const [lang, setLang] = useState('spanish');
   const [prog, setProg] = useState<CaptionProgress | null>(null);
   const [err, setErr] = useState('');
@@ -104,14 +106,14 @@ export function CleanupSheet() {
               <div className="hint">Idioma</div>
               <Chips options={CAPTION_LANGS} value={lang} onChange={setLang} />
               <div className="hint">Modelo</div>
-              <Chips options={CAPTION_MODELS.map((m) => ({ id: m.id, label: m.label }))} value={model} onChange={setModel} />
+              <ModelPicker value={model} onChange={setModel} busy={!!prog} />
             </>
           )}
         </>
       )}
       {prog ? <TranscribeProgress prog={prog} /> : <button className="btn primary block" onClick={run}>Quitar</button>}
       {err && <p className="hint" style={{ color: 'var(--danger)' }}>{err}</p>}
-      <p className="hint">Corta las pausas de la voz en los clips de la pista principal. Los textos, subtítulos, superposiciones y la música se recolocan para seguir sincronizados. Las muletillas (eh, mmm, ehm…) se detectan con el reconocimiento de voz en el iPhone.</p>
+      <p className="hint">Corta las pausas de la voz en los clips de la pista principal. Los textos, subtítulos, superposiciones y la música se recolocan para seguir sincronizados. Las muletillas (eh, mmm, ehm…) se detectan con el reconocimiento de voz en tu dispositivo.</p>
     </Sheet>
   );
 }

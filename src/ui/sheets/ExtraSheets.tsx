@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { MediaClip, TextClip } from '../../types';
+import { savedModel } from '../../media/models';
+import { ModelPicker } from '../ModelPicker';
 import { useEditor } from '../../store/editor';
 import { findSelected, updateSelected } from '../../store/actions';
-import { CAPTION_LANGS, CAPTION_MODELS, captionClips, transcribe, type CaptionProgress } from '../../media/captions';
+import { CAPTION_LANGS, captionClips, transcribe, type CaptionProgress } from '../../media/captions';
 import { projectDuration } from '../../engine/timeline';
 import { applyTemplate, templateOf } from '../../engine/presets';
 import { TemplateGrid, WordControls } from './TextSheets';
@@ -40,7 +42,7 @@ export function TranscribeProgress({ prog }: { prog: CaptionProgress }) {
   const [label, detail] = prog.stage === 'audio' ? ['Preparando audio…', '']
     : prog.stage === 'download' ? [`Descargando modelo · ${pct(prog.fraction)}`, `${(prog.mb ?? 0).toFixed(0)} de ${(prog.totalMb ?? 0).toFixed(0)} MB · solo la primera vez`]
       : prog.stage === 'loading' ? ['Cargando el modelo…', '']
-        : [`Transcribiendo · ${pct(prog.fraction)}`, `${clock(prog.done ?? 0)} de ${clock(prog.total ?? 0)} de voz · ${prog.eta === undefined ? 'calculando tiempo restante…' : `quedan ${remaining(prog.eta)}`}`];
+        : [`Transcribiendo${prog.backend === 'webgpu' ? ' con la GPU' : ''} · ${pct(prog.fraction)}`, `${clock(prog.done ?? 0)} de ${clock(prog.total ?? 0)} de voz · ${prog.eta === undefined ? 'calculando tiempo restante…' : `quedan ${remaining(prog.eta)}`}`];
   const bar = prog.stage === 'loading' ? 1 : prog.stage === 'audio' ? 0.02 : prog.fraction;
   return (
     <>
@@ -52,7 +54,7 @@ export function TranscribeProgress({ prog }: { prog: CaptionProgress }) {
 }
 
 export function CaptionsSheet() {
-  const [model, setModel] = useState(CAPTION_MODELS[0].id);
+  const [model, setModel] = useState(savedModel);
   const [lang, setLang] = useState('spanish');
   const [words, setWords] = useState(4);
   const [prog, setProg] = useState<CaptionProgress | null>(null);
@@ -98,13 +100,13 @@ export function CaptionsSheet() {
       <div className="hint">Idioma</div>
       <Chips options={CAPTION_LANGS} value={lang} onChange={setLang} />
       <div className="hint">Modelo</div>
-      <Chips options={CAPTION_MODELS.map((m) => ({ id: m.id, label: m.label }))} value={model} onChange={setModel} />
+      <ModelPicker value={model} onChange={setModel} busy={!!prog} />
       <Slider label="Palabras/línea" min={1} max={10} step={1} value={words} onChange={setWords} />
       {prog ? <TranscribeProgress prog={prog} /> : (
         <button className="btn primary block" onClick={run}>{firstCaption ? 'Volver a generar' : 'Generar subtítulos'}</button>
       )}
       {err && <p className="hint" style={{ color: 'var(--danger)' }}>{err}</p>}
-      <p className="hint">Usa Whisper directamente en el iPhone: tu audio no sale del dispositivo. El modelo se descarga una vez y queda guardado. «Preciso» comete la mitad de errores que «Rápido» pero tarda unas dos veces más. Con 1 palabra por línea tendrás el estilo de una palabra cada vez.</p>
+      <p className="hint">Usa Whisper en tu dispositivo: tu audio no sale de él. Cada modelo se descarga una vez y queda guardado hasta que lo borres. Los modelos para PC cometen menos errores pero pesan mucho más. Con 1 palabra por línea tendrás el estilo de una palabra cada vez.</p>
     </Sheet>
   );
 }
