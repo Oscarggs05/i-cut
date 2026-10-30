@@ -52,6 +52,7 @@ export function Preview() {
     const player = new Player(canvasRef.current!, S().project!);
     playerRef.current = player;
     setPlayer(player);
+    if (S().time) player.seek(S().time);
     let last = -1;
     player.onTime = (t, playing) => {
       if (Math.abs(t - last) > 1 / 120 || playing !== S().playing) { last = t; S().setTime(t, playing); }

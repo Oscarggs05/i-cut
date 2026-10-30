@@ -5,6 +5,7 @@ import { ALL_FORMATS, AudioBufferSink, BlobSource, CanvasSink, Input } from 'med
 import type { Asset, AssetKind } from '../types';
 import { uid } from '../engine/timeline';
 import { loadMedia, saveMedia } from '../store/db';
+import { trackMediaWrite } from '../store/autosave';
 
 let actx: AudioContext | null = null;
 export function audioContext(): AudioContext {
@@ -98,7 +99,9 @@ class Library {
     if (!isFinite(duration) || duration <= 0) {
       if (kind !== 'image') throw new Error(`No se pudo leer la duración de ${file.name}`);
     }
-    await saveMedia(id, file);
+    // The bytes go to disk in the background; autosave waits for them before
+    // saving a project that uses this asset.
+    trackMediaWrite(saveMedia(id, file));
     return { id, kind, name: file.name || `${kind}-${id}`, mime: file.type, size: file.size, duration, width, height, hasAudio };
   }
 
