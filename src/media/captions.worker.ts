@@ -1,6 +1,7 @@
 // Speech recognition (Whisper) running on the device, in a worker so the
 // editor stays responsive. The model downloads once and is then cached.
 import { isHallucination, speechWindows } from './speech';
+import type { SpeechModel } from './models';
 
 // Loaded from the CDN only when captions are used, so the 25 MB ONNX
 // runtime is not part of the app download.
@@ -17,26 +18,50 @@ type Chunk = { text: string; timestamp: [number, number | null] };
 type Asr = ((audio: Float32Array, opts: Record<string, unknown>) => Promise<{ text: string; chunks?: Chunk[] }>) & { dispose(): Promise<void> };
 let asr: Asr | null = null;
 let loaded = '';
+let backend = '';
 
 const SR = 16000;
 
-self.onmessage = async (e: MessageEvent<{ audio: Float32Array; model: string; language: string }>) => {
+async function webgpu() {
+  try {
+    const g = (navigator as unknown as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+    return !!(g && await g.requestAdapter());
+  } catch {
+    return false;
+  }
+}
+
+self.onmessage = async (e: MessageEvent<{ audio: Float32Array; model: SpeechModel; language: string }>) => {
   const { audio, model, language } = e.data;
   const post = (type: string, data?: unknown) => (self as unknown as Worker).postMessage({ type, data });
   try {
-    if (!asr || loaded !== model) {
+    if (!asr || loaded !== model.key) {
       // Two models don't fit in an iPhone's memory at once.
       await asr?.dispose();
       asr = null;
       const progress_callback = (p: unknown) => post('progress', p);
       const { pipeline } = await load();
       const make = pipeline as unknown as (task: string, model: string, opts: Record<string, unknown>) => Promise<Asr>;
-      // WASM with 8-bit weights: the same download and the same result on
-      // every iPhone. Measured on Spanish speech, 8-bit loses no accuracy
-      // against full-precision weights here.
-      asr = await make('automatic-speech-recognition', model, { progress_callback, device: 'wasm', dtype: 'q8' });
-      loaded = model;
+      // Phone models: WASM with 8-bit weights, the same download and the
+      // same result on every iPhone (8-bit loses no accuracy here). PC
+      // models run on the graphics card when there is WebGPU, with the same
+      // weights as on WASM, so falling back downloads nothing new.
+      const opts = { progress_callback, dtype: model.dtype };
+      if (model.gpu && await webgpu()) {
+        try {
+          asr = await make('automatic-speech-recognition', model.repo, { ...opts, device: 'webgpu' });
+          backend = 'webgpu';
+        } catch (err) {
+          console.warn('WebGPU failed, using WASM', err);
+        }
+      }
+      if (!asr) {
+        asr = await make('automatic-speech-recognition', model.repo, { ...opts, device: 'wasm' });
+        backend = 'wasm';
+      }
+      loaded = model.key;
     }
+    post('backend', backend);
     // Our own windows, cut at pauses, instead of the pipeline's overlapping
     // 30 s chunks: no words duplicated or lost at the seams, silence is
     // skipped, and the progress can be reported window by window.

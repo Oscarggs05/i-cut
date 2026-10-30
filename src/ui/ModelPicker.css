@@ -1,0 +1,16 @@
+.model-picker { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 8px; }
+.mp-group { display: flex; flex-direction: column; gap: 6px; }
+.mp-head { font-size: 12px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; }
+.mp-sub { margin: 0; }
+.mp-item { display: flex; align-items: stretch; border-radius: 12px; background: var(--panel2); border: 2px solid transparent; }
+.mp-item.on { border-color: var(--accent); }
+.mp-main { flex: 1; min-width: 0; display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px 12px; }
+.mp-main:disabled { opacity: 0.6; }
+.mp-radio { flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; border: 2px solid var(--muted); }
+.mp-item.on .mp-radio { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--panel2); background: var(--accent); }
+.mp-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mp-name { font-size: 14px; font-weight: 600; }
+.mp-meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mp-note { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.mp-del { flex: none; padding: 0 12px; font-size: 12px; color: var(--danger); }
+.mp-warn { color: var(--danger); margin: 0; }

@@ -3,13 +3,7 @@ import { renderMix } from '../engine/audio';
 import { applyTemplate } from '../engine/presets';
 import { newTextClip, projectDuration } from '../engine/timeline';
 import { library } from './library';
-
-// Measured on 3 min of Spanish speech (word error rate, lower is better):
-// small 11 %, base 19 %, tiny 45 %. Tiny is too inaccurate to offer.
-export const CAPTION_MODELS = [
-  { id: 'onnx-community/whisper-small_timestamped', label: 'Preciso (~250 MB)' },
-  { id: 'onnx-community/whisper-base_timestamped', label: 'Rápido (~80 MB)' },
-];
+import { cachedModels, prepareStorage, type SpeechModel } from './models';
 
 // Whisper in Transformers.js doesn't detect the language (it falls back to
 // English), so the language is always chosen explicitly.
@@ -26,6 +20,8 @@ export const CAPTION_LANGS = [
 export interface CaptionProgress {
   stage: 'audio' | 'download' | 'loading' | 'transcribing';
   fraction: number;
+  /** Where the model runs, once loaded: 'webgpu' (graphics card) or 'wasm'. */
+  backend?: string;
   /** Download: MB received and expected. */
   mb?: number;
   totalMb?: number;
@@ -66,8 +62,12 @@ let worker: Worker | null = null;
 type Segment = TimedWord;
 
 /** Transcribes the project (or `audio`, already mixed by projectAudio16k) into timed words. */
-export async function transcribe(p: Project, model: string, language: string, onProgress: (p: CaptionProgress) => void, mixed?: Float32Array): Promise<Segment[]> {
+export async function transcribe(p: Project, model: SpeechModel, language: string, onProgress: (p: CaptionProgress) => void, mixed?: Float32Array): Promise<Segment[]> {
   onProgress({ stage: 'audio', fraction: 0 });
+  if (!(await cachedModels()).some((c) => c.key === model.key && c.complete)) {
+    const free = await prepareStorage();
+    if (free !== undefined && free < model.mb * 1.05) throw new Error(`No hay espacio para descargar el modelo (${Math.round(model.mb)} MB, quedan ${Math.round(free)} MB). Borra otro modelo o libera espacio`);
+  }
   // The buffer is handed over to the worker, so a caller's copy is cloned.
   const audio = mixed ? mixed.slice() : await projectAudio16k(p);
   if (!worker) worker = new Worker(new URL('./captions.worker.ts', import.meta.url), { type: 'module' });
@@ -79,13 +79,14 @@ export async function transcribe(p: Project, model: string, language: string, on
   let tick = 0;
   let win = { done: 0, total: 0, len: 0, at: 0 };
   let began = 0;
+  let backend: string | undefined;
   const report = () => {
     const now = performance.now();
     const rate = win.done > 0 ? (win.at - began) / 1000 / win.done : 0; // s of work per s of audio
     const inWin = rate ? Math.min(win.len * 0.95, (now - win.at) / 1000 / rate) : 0;
     const done = win.done + inWin;
     onProgress({
-      stage: 'transcribing', fraction: win.total ? done / win.total : 0, done, total: win.total,
+      stage: 'transcribing', fraction: win.total ? done / win.total : 0, done, total: win.total, backend,
       eta: rate ? (win.total - done) * rate : undefined,
     });
   };
@@ -105,6 +106,8 @@ export async function transcribe(p: Project, model: string, language: string, on
         const t = weights.reduce((s, x) => s + x.total, 0);
         if (weights.length && weights.every((x) => x.done)) onProgress({ stage: 'loading', fraction: 1 });
         else onProgress({ stage: 'download', fraction: t ? l / t : 0, mb: l / 1e6, totalMb: t / 1e6 });
+      } else if (type === 'backend') {
+        backend = data;
       } else if (type === 'window') {
         const now = performance.now();
         if (!began) { began = now; tick = window.setInterval(report, 250); }
