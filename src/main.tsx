@@ -11,8 +11,11 @@ for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) {
 // Installed on the Home Screen with a translucent status bar, iOS can report
 // a viewport shorter than the screen by the status bar's height, which leaves
 // a black strip under the app. Size it to the physical screen instead.
+// Desktop installs (Chrome, Edge) open in a resizable window, where sizing to
+// the screen would push the bottom of the editor out of view.
 const standalone = (navigator as Navigator & { standalone?: boolean }).standalone || matchMedia('(display-mode: standalone)').matches;
-if (standalone) {
+const desktopWindow = matchMedia('(hover: hover) and (pointer: fine)').matches && !/iPhone|iPad|iPod/.test(navigator.userAgent);
+if (standalone && !desktopWindow) {
   const fit = () => {
     const portrait = window.innerHeight >= window.innerWidth;
     const screenH = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
