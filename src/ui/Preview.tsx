@@ -35,6 +35,7 @@ export function Preview() {
   const boxRef = useRef<HTMLDivElement>(null);
   const guideV = useRef<HTMLDivElement>(null);
   const guideH = useRef<HTMLDivElement>(null);
+  const gestureRef = useRef<HTMLDivElement>(null);
   const boundsRef = useRef<LayerBounds[]>([]);
   const playerRef = useRef<Player | null>(null);
   const [stage, setStage] = useState({ w: 200, h: 356 });
@@ -230,6 +231,24 @@ export function Preview() {
     mode.current = { kind: 'none' };
   };
 
+  // With a mouse there is no pinch: the wheel scales the selected layer and
+  // Shift + wheel rotates it.
+  useEffect(() => {
+    const el = gestureRef.current!;
+    const wheel = (e: WheelEvent) => {
+      const sel = selRef.current;
+      const tr = sel && sel.kind !== 'audio' && sel.kind !== 'transition' ? transformOf(sel) : null;
+      if (!tr) return;
+      e.preventDefault();
+      getPlayer()?.pause();
+      const d = e.deltaY || e.deltaX;
+      if (e.shiftKey) setTransform(sel, { rotation: tr.rotation + Math.sign(d) * 2 });
+      else setTransform(sel, { scale: Math.max(0.05, Math.min(12, tr.scale * Math.exp(-d * 0.0015))) });
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, []);
+
   const onHandleDown = (e: React.PointerEvent) => {
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -250,7 +269,7 @@ export function Preview() {
         <canvas ref={canvasRef} />
         <div className="guide v" ref={guideV} />
         <div className="guide h" ref={guideH} />
-        <div className="gesture" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
+        <div className="gesture" ref={gestureRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
         <div className="sel-box" ref={boxRef}>
           <button className="h" style={{ left: -11, top: -11, pointerEvents: 'auto' }} aria-label="Eliminar"
             onPointerDown={(e) => e.stopPropagation()} onClick={() => deleteSelected()}>✕</button>

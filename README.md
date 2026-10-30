@@ -73,6 +73,13 @@ i-cut no se descarga de la App Store: se instala desde Safari en menos de un min
 - Exporta en MP4 desde 480p hasta 4K, a 24, 25, 30, 50 o 60 fps.
 - Pulsa **«Guardar en Fotos / Compartir»** y elige **«Guardar vídeo»** para tenerlo en tu carrete, o envíalo directamente por WhatsApp, Instagram, TikTok…
 
+## También en el ordenador
+
+Abre **https://i-cut.vercel.app** en Chrome, Edge o Safari en un PC o Mac. Con una ventana grande, el editor se reorganiza para el ratón: herramientas a la izquierda, vista previa grande en el centro, panel de propiedades a la derecha y una línea de tiempo ancha abajo. En el iPhone sigue viéndose igual que siempre.
+
+- **Ratón:** arrastra un clip para moverlo o cambiarlo de orden, arrastra sus bordes para recortarlo y arrastra la regla para moverte por el vídeo. La rueda desplaza la línea de tiempo y **Ctrl + rueda** hace zoom. Sobre la vista previa, la rueda cambia el tamaño del elemento seleccionado y **Mayús + rueda** lo gira.
+- **Teclado:** **Espacio** reproduce o pausa, **← →** avanzan fotograma a fotograma (con **Mayús**, de segundo en segundo), **S** divide, **Supr** elimina, **Ctrl+D** duplica, **Ctrl+Z / Ctrl+Y** deshacen y rehacen, **+ / −** hacen zoom y **Esc** cierra el panel.
+
 ## Preguntas frecuentes
 
 **¿De verdad es gratis?** Sí. Sin suscripciones, sin compras dentro de la app y sin marca de agua en tus vídeos.

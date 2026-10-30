@@ -161,7 +161,8 @@ export function Timeline() {
   const lastSet = useRef(-1);
   const drag = useRef<Drag | null>(null);
   const [dragView, setDragView] = useState<Drag | null>(null);
-  const press = useRef<{ id: string; item: ItemKind; x0: number; y0: number; timer: number; moved: boolean } | null>(null);
+  const press = useRef<{ id: string; item: ItemKind; x0: number; y0: number; timer: number; moved: boolean; pickUp: () => void } | null>(null);
+  const scrub = useRef<{ x0: number; t0: number; moved: boolean; ruler: boolean } | null>(null);
   const pinch = useRef<{ d0: number; pps0: number } | null>(null);
 
   const duration = projectDuration(project);
@@ -225,7 +226,13 @@ export function Timeline() {
     };
     const te = (e: TouchEvent) => { if (e.touches.length < 2) pinch.current = null; };
     const wheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) { e.preventDefault(); S().setZoom(S().pxPerSec * Math.exp(-e.deltaY * 0.01)); }
+      if (e.ctrlKey || e.metaKey || e.altKey) { e.preventDefault(); S().setZoom(S().pxPerSec * Math.exp(-e.deltaY * 0.01)); return; }
+      // A mouse wheel only scrolls vertically; turn it into moving along the
+      // timeline. Shift keeps the browser's own behaviour for the lanes.
+      if (!e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
+      }
     };
     el.addEventListener('touchstart', ts, { passive: true });
     el.addEventListener('touchmove', tm, { passive: false });
@@ -248,33 +255,38 @@ export function Timeline() {
 
   const onClipDown = (e: React.PointerEvent, item: ItemKind, id: string) => {
     if (pinch.current) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     const x0 = e.clientX, y0 = e.clientY;
     const target = e.currentTarget as HTMLElement;
     const pid = e.pointerId;
-    press.current = {
-      id, item, x0, y0, moved: false,
-      timer: window.setTimeout(() => {
-        // Long press: pick the clip up.
-        const p = S().project!;
-        try { target.setPointerCapture(pid); } catch { /* ignore */ }
-        getPlayer()?.pause();
-        navigator.vibrate?.(10);
-        if (item === 'main') {
-          const from = p.main.findIndex((c) => c.id === id);
-          drag.current = { kind: 'reorder', id, from, x0, dx: 0, to: from };
-        } else {
-          const c = findItem(p, item, id)!;
-          drag.current = { kind: 'move', id, item, x0, start0: c.start };
-        }
-        selectItem(item, id);
-        setDragView({ ...drag.current });
-      }, 380),
+    // Pick the clip up to move or reorder it.
+    const pickUp = () => {
+      const p = S().project!;
+      try { target.setPointerCapture(pid); } catch { /* ignore */ }
+      getPlayer()?.pause();
+      navigator.vibrate?.(10);
+      if (item === 'main') {
+        const from = p.main.findIndex((c) => c.id === id);
+        drag.current = { kind: 'reorder', id, from, x0, dx: 0, to: from };
+      } else {
+        const c = findItem(p, item, id)!;
+        drag.current = { kind: 'move', id, item, x0, start0: c.start };
+      }
+      selectItem(item, id);
+      setDragView({ ...drag.current });
     };
+    // Touch needs a long press so a swipe still scrolls; a mouse drag can't
+    // scroll, so it picks the clip up as soon as it moves (see onClipMove).
+    press.current = { id, item, x0, y0, moved: false, pickUp, timer: window.setTimeout(pickUp, 380) };
   };
 
   const onClipMove = (e: React.PointerEvent) => {
     const pr = press.current;
-    if (pr && !drag.current && Math.hypot(e.clientX - pr.x0, e.clientY - pr.y0) > 8) { pr.moved = true; clearTimeout(pr.timer); }
+    if (pr && !drag.current && Math.hypot(e.clientX - pr.x0, e.clientY - pr.y0) > (e.pointerType === 'mouse' ? 4 : 8)) {
+      pr.moved = true;
+      clearTimeout(pr.timer);
+      if (e.pointerType === 'mouse') pr.pickUp();
+    }
     const d = drag.current;
     if (!d) return;
     if (d.kind === 'reorder') {
@@ -392,6 +404,34 @@ export function Timeline() {
     getPlayer()?.seek(S().time);
   };
 
+  // With a mouse, dragging the ruler or the empty background pans the
+  // timeline like a finger would; a click on the ruler jumps to that time.
+  const onScrubDown = (e: React.PointerEvent, ruler: boolean) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0 || e.target !== e.currentTarget) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    getPlayer()?.pause();
+    scrub.current = { x0: e.clientX, t0: S().time, moved: false, ruler };
+  };
+  const onScrubMove = (e: React.PointerEvent) => {
+    const sc = scrub.current;
+    if (!sc) return;
+    if (Math.abs(e.clientX - sc.x0) > 3) sc.moved = true;
+    if (sc.moved) seekTo(Math.min(projectDuration(S().project!), sc.t0 - (e.clientX - sc.x0) / S().pxPerSec));
+  };
+  const onScrubUp = (e: React.PointerEvent) => {
+    const sc = scrub.current;
+    scrub.current = null;
+    if (!sc || sc.moved || !sc.ruler) return;
+    const rect = wrapRef.current!.getBoundingClientRect();
+    seekTo(Math.min(projectDuration(S().project!), sc.t0 + (e.clientX - rect.left - half) / S().pxPerSec));
+  };
+  const scrubEvents = (ruler: boolean) => ({
+    onPointerDown: (e: React.PointerEvent) => onScrubDown(e, ruler),
+    onPointerMove: onScrubMove,
+    onPointerUp: onScrubUp,
+    onPointerCancel: () => { scrub.current = null; },
+  });
+
   const seekTo = (t: number) => {
     const player = getPlayer();
     player?.pause();
@@ -436,10 +476,11 @@ export function Timeline() {
   return (
     <div className="timeline" ref={wrapRef}>
       <Ruler pps={pps} half={half} width={vw} />
+      <div className="tl-scrub" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: RULER, zIndex: 2 }} {...scrubEvents(true)} />
       <div className="tl-scroll" ref={scrollRef} onScroll={onScroll} style={{ top: RULER }}>
-        <div className="tl-content" style={{ width: contentW }} onClick={(e) => { if (e.target === e.currentTarget) S().select(null); }}>
+        <div className="tl-content" style={{ width: contentW }} onClick={(e) => { if (e.target === e.currentTarget) S().select(null); }} {...scrubEvents(false)}>
           {/* Main track */}
-          <div className="tl-row tl-main" style={{ height: MAIN_H }} onClick={(e) => { if (e.target === e.currentTarget) S().select(null); }}>
+          <div className="tl-row tl-main" style={{ height: MAIN_H }} onClick={(e) => { if (e.target === e.currentTarget) S().select(null); }} {...scrubEvents(false)}>
             {!project.main.length && (
               <button className="add-row" style={{ left: half, height: MAIN_H, position: 'absolute' }} onClick={async () => addMedia(await pickFiles('video/*,image/*'), 'main')}>
                 <Icon name="plus" size={18} /> Añadir vídeos o fotos
