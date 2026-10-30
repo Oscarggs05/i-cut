@@ -35,8 +35,16 @@ async function tx(store: StoreName, mode: IDBTransactionMode) {
   return db.transaction(store, mode).objectStore(store);
 }
 
+/** Resolves once the write is committed, not just queued. */
 export async function put(store: StoreName, key: string, value: unknown) {
-  await wrap((await tx(store, 'readwrite')).put(value, key));
+  const os = await tx(store, 'readwrite');
+  await new Promise<void>((resolve, reject) => {
+    const t = os.transaction;
+    os.put(value, key);
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error ?? new Error('IndexedDB write aborted'));
+  });
 }
 export async function get<T>(store: StoreName, key: string): Promise<T | undefined> {
   return wrap((await tx(store, 'readonly')).get(key)) as Promise<T | undefined>;

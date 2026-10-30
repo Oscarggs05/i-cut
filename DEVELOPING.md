@@ -80,7 +80,7 @@ public/        manifiesto PWA, service worker e iconos
 - **Compositor (`engine/renderer.ts`, `engine/shaders.ts`):** dibuja cada fotograma en la GPU: fondo desenfocado, clip principal, transición (dos framebuffers mezclados por shader), superposiciones y textos. Los filtros, ajustes, croma y efectos son un único shader por capa.
 - **Vista previa (`engine/player.ts`):** elementos `<video>` silenciados alimentan las texturas y el sonido se mezcla con Web Audio. En iOS el volumen de `<video>` es de solo lectura, y Web Audio es la única forma de controlarlo.
 - **Exportación (`engine/export.ts`):** recorre la línea de tiempo fotograma a fotograma, decodifica con [Mediabunny](https://mediabunny.dev) y WebCodecs, renderiza con el mismo compositor y codifica a MP4. La mezcla de audio se hace con el mismo grafo que la vista previa, así que lo que oyes es lo que se exporta.
-- **Datos:** proyectos y archivos en IndexedDB, dentro del iPhone.
+- **Datos:** proyectos y archivos en IndexedDB, dentro del iPhone. El guardado automático (`store/autosave.ts`) escribe el proyecto un segundo después de cada cambio (como mucho cada 4 s mientras se edita) y al pasar a segundo plano; los vídeos se guardan una sola vez al importarlos. Si iOS cierra la pestaña, al volver a abrir la app se reanuda el último proyecto en el mismo punto.
 
 Se ha usado [Concat](https://github.com/jub0t/Concat) como referencia de funciones y de experiencia de uso. No se ha copiado código: Concat es un motor nativo en Rust con licencia AGPL‑3.0 y esta app está escrita desde cero para la web.
 

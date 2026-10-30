@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Project, Selection } from '../types';
 import type { Player } from '../engine/player';
-import { saveProject } from './db';
+import { scheduleSave } from './autosave';
 
 const HISTORY = 80;
 
@@ -23,7 +23,7 @@ interface EditorState {
   pxPerSec: number;
   toast: string | null;
   busy: string | null;
-  open: (p: Project) => void;
+  open: (p: Project, time?: number) => void;
   close: () => void;
   /** Applies an edit. Edits with the same `key` within a second merge into one undo step. */
   update: (fn: (draft: Project) => void, key?: string) => void;
@@ -41,12 +41,6 @@ let player: Player | null = null;
 export const setPlayer = (p: Player | null) => { player = p; };
 export const getPlayer = () => player;
 
-let saveTimer = 0;
-function scheduleSave(p: Project) {
-  clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => { void saveProject(p); }, 500);
-}
-
 export const useEditor = create<EditorState>((set, get) => ({
   project: null,
   past: [],
@@ -60,10 +54,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   pxPerSec: 60,
   toast: null,
   busy: null,
-  open: (p) => set({ project: p, past: [], future: [], selection: null, sheet: null, time: 0, playing: false, lastKey: null }),
+  open: (p, time = 0) => set({ project: p, past: [], future: [], selection: null, sheet: null, time, playing: false, lastKey: null }),
   close: () => {
-    const p = get().project;
-    if (p) { clearTimeout(saveTimer); void saveProject(p); }
     set({ project: null, past: [], future: [], selection: null, sheet: null });
   },
   update: (fn, key) => {
