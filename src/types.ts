@@ -130,6 +130,17 @@ export interface MediaClip extends Visual {
   crop?: Crop | null;
   /** Rounded corners as a fraction of the shorter side (0 to 0.5). */
   radius?: number;
+  /** Set on the clips that make up a collage (see engine/collage.ts). */
+  collage?: CollageCell | null;
+}
+
+export interface CollageCell {
+  /** Shared by every clip of the same collage. */
+  id: string;
+  template: string;
+  /** Index of the template cell this clip fills (0 is the main-track clip). */
+  cell: number;
+  gap: number;
 }
 
 /** A spoken word, in seconds from the start of its text clip. */
