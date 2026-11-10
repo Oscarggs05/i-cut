@@ -11,7 +11,7 @@ export function App() {
   const project = useEditor((s) => s.project);
   const [loading, setLoading] = useState(false);
 
-  const open = async (p: Project, files?: File[]) => {
+  const open = async (p: Project, files?: File[], sheet?: 'collage') => {
     setLoading(true);
     library.reset();
     await library.load(p.assets);
@@ -20,6 +20,7 @@ export function App() {
     setLoading(false);
     void requestPersistence();
     if (files?.length) await addMedia(files, 'main');
+    if (sheet) useEditor.getState().setSheet(sheet);
   };
 
   const close = () => {

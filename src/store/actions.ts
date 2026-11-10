@@ -34,7 +34,7 @@ export function mainIndexAt(p: Project, t: number): number {
   return i >= 0 ? i : l.length - 1;
 }
 
-async function importFiles(files: File[]): Promise<Asset[]> {
+export async function importFiles(files: File[]): Promise<Asset[]> {
   const out: Asset[] = [];
   for (const [i, f] of files.entries()) {
     S().setBusy(files.length > 1 ? `Importando ${i + 1} de ${files.length}…` : 'Importando…');
@@ -48,7 +48,7 @@ async function importFiles(files: File[]): Promise<Asset[]> {
   return out;
 }
 
-async function refreshCover() {
+export async function refreshCover() {
   const p = S().project;
   if (!p || !p.main.length) return;
   const a = p.assets.find((x) => x.id === p.main[0].assetId);
@@ -291,7 +291,7 @@ export async function freezeFrame() {
       const i = d.main.findIndex((c) => c.id === l.clip.id);
       const c = newMediaClip(img);
       const src = d.main[i];
-      Object.assign(c, { filter: src.filter, adjust: src.adjust, transform: src.transform, flipH: src.flipH, flipV: src.flipV });
+      Object.assign(c, { filter: src.filter, adjust: src.adjust, transform: src.transform, flipH: src.flipH, flipV: src.flipV, crop: src.crop, radius: src.radius });
       d.main.splice(i + 1, 0, c);
     });
     void library.thumbnails(img);

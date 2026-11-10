@@ -1,4 +1,4 @@
-import type { Project, Visual } from '../types';
+import type { Crop, MediaClip, Project, Visual } from '../types';
 import { effectIndex, filterById, transitionIndex } from './presets';
 import { animState, type MediaLayer, type Scene } from './scene';
 import { resolveVisual } from './keyframes';
@@ -223,7 +223,7 @@ export class Renderer {
 
   /** Draws a textured layer into the bound target of size resW x resH. */
   private drawTex(tex: TexEntry, cx: number, cy: number, w: number, h: number, rot: number, resW: number, resH: number,
-    opts: { visual: Visual | null; flipH?: boolean; flipV?: boolean; opacity: number; rect?: [number, number, number, number]; time: number; effect: string; effAmt: number; stab?: StabCorr | null }) {
+    opts: { visual: Visual | null; flipH?: boolean; flipV?: boolean; opacity: number; rect?: [number, number, number, number]; time: number; effect: string; effAmt: number; stab?: StabCorr | null; radius?: number }) {
     const gl = this.gl;
     const P = this.layer;
     gl.useProgram(P.p);
@@ -231,7 +231,9 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex.tex);
     gl.uniform1i(this.loc(P, 'u_tex'), 0);
-    gl.uniform4fv(this.loc(P, 'u_uvRect'), opts.rect ?? [0, 0, 1, 1]);
+    const rect = opts.rect ?? [0, 0, 1, 1];
+    gl.uniform4fv(this.loc(P, 'u_uvRect'), rect);
+    gl.uniform1f(this.loc(P, 'u_radius'), Math.max(0, Math.min(0.5, opts.radius ?? 0)));
     gl.uniform2f(this.loc(P, 'u_flip'), opts.flipH ? 1 : 0, opts.flipV ? 1 : 0);
     gl.uniform2f(this.loc(P, 'u_px'), 1 / Math.max(1, Math.abs(w)), 1 / Math.max(1, Math.abs(h)));
     gl.uniform1f(this.loc(P, 'u_opacity'), opts.opacity);
@@ -239,7 +241,7 @@ export class Renderer {
     gl.uniform1f(this.loc(P, 'u_stabOn'), sc ? 1 : 0);
     if (sc) {
       gl.uniform4f(this.loc(P, 'u_stab'), sc.dx, sc.dy, sc.da, sc.zoom);
-      gl.uniform1f(this.loc(P, 'u_aspect'), tex.w / Math.max(1, tex.h));
+      gl.uniform1f(this.loc(P, 'u_aspect'), (tex.w * rect[2]) / Math.max(1, tex.h * rect[3]));
     }
     this.setGrade(opts.visual, opts.time, opts.effect, opts.effAmt);
     this.drawQuad();
@@ -261,8 +263,10 @@ export class Renderer {
     const small = this.fbo('bgSmall', sw, shh);
     this.bindTarget(small);
     gl.disable(gl.BLEND);
-    const sa = tex.w / tex.h, ta = W / H;
-    const rect: [number, number, number, number] = sa > ta ? [(1 - ta / sa) / 2, 0, ta / sa, 1] : [0, (1 - sa / ta) / 2, 1, sa / ta];
+    const cr = cropRect(layer.clip);
+    const sa = (tex.w * cr[2]) / (tex.h * cr[3]), ta = W / H;
+    const fit = sa > ta ? [(1 - ta / sa) / 2, 0, ta / sa, 1] : [0, (1 - sa / ta) / 2, 1, sa / ta];
+    const rect: [number, number, number, number] = [cr[0] + fit[0] * cr[2], cr[1] + fit[1] * cr[3], fit[2] * cr[2], fit[3] * cr[3]];
     this.drawTex(tex, sw / 2, shh / 2, sw, shh, 0, sw, shh, {
       visual: { ...layer.clip, chroma: null }, flipH: layer.clip.flipH, flipV: layer.clip.flipV, opacity: 1, rect, time: layer.localT, effect: 'none', effAmt: 0,
     });
@@ -281,13 +285,16 @@ export class Renderer {
   private mediaGeometry(layer: MediaLayer, tex: TexEntry, v = resolveVisual(layer.clip, layer.localT)) {
     const W = this.width, H = this.height;
     const st = animState(v, layer.localT, layer.duration, v.effect.id, v.effect.intensity);
-    const s0 = Math.min(W / tex.w, H / tex.h);
+    const rect = cropRect(layer.clip);
+    const tw = tex.w * rect[2], th = tex.h * rect[3];
+    const s0 = Math.min(W / tw, H / th);
     const scale = v.transform.scale * st.scale;
     return {
+      rect,
       cx: W / 2 + (v.transform.x + st.dx) * W,
       cy: H / 2 + (v.transform.y + st.dy) * H,
-      w: tex.w * s0 * scale,
-      h: tex.h * s0 * scale,
+      w: tw * s0 * scale,
+      h: th * s0 * scale,
       rot: v.transform.rotation + st.rotation,
       opacity: v.opacity * st.opacity,
     };
@@ -301,7 +308,7 @@ export class Renderer {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     this.drawTex(tex, g.cx, g.cy, g.w, g.h, g.rot, this.width, this.height, {
       visual: v, flipH: v.flipH, flipV: v.flipV, opacity: g.opacity, time: layer.localT, effect: v.effect.id, effAmt: v.effect.intensity,
-      stab: stabAt(layer.clip, layer.sourceTime),
+      stab: stabAt(layer.clip, layer.sourceTime), rect: g.rect, radius: layer.clip.radius,
     });
     out.push(bounds(v.id, kind, g.cx, g.cy, g.w, g.h, g.rot));
   }
@@ -395,6 +402,14 @@ export class Renderer {
     this.fbos = {};
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
+}
+
+/** The clip's crop as a texture rectangle [x, y, w, h], clamped to the source. */
+export function cropRect(c: MediaClip): [number, number, number, number] {
+  const k: Crop | null | undefined = c.crop;
+  if (!k) return [0, 0, 1, 1];
+  const w = Math.min(1, Math.max(0.01, k.w)), h = Math.min(1, Math.max(0.01, k.h));
+  return [Math.min(1 - w, Math.max(0, k.x)), Math.min(1 - h, Math.max(0, k.y)), w, h];
 }
 
 function bounds(id: string, kind: LayerBounds['kind'], cx: number, cy: number, w: number, h: number, rot: number): LayerBounds {

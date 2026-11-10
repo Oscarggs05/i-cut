@@ -36,6 +36,7 @@ export function Toolbar() {
         S().select({ kind: 'main', id: p.main[mainIndexAt(p, S().time)].id });
       } },
       { id: 'audio', label: 'Audio', icon: 'music', run: open('audio') },
+      { id: 'collage', label: 'Plantillas', icon: 'grid', run: open('collage') },
       { id: 'text', label: 'Texto', icon: 'text', run: () => { addText(); S().setSheet('text'); } },
       { id: 'captions', label: 'Subtítulos', icon: 'wand', run: () => {
         if (!S().project!.main.length) { S().showToast('Añade un vídeo primero'); return; }
@@ -70,7 +71,8 @@ export function Toolbar() {
       { id: 'filters', label: 'Filtros', icon: 'filter', run: open('filters') },
       { id: 'adjust', label: 'Ajustar', icon: 'sliders', run: open('adjust') },
       { id: 'effects', label: 'Efectos', icon: 'sparkles', run: open('effects') },
-      { id: 'transform', label: 'Transformar', icon: 'crop', run: open('transform') },
+      { id: 'crop', label: 'Recortar', icon: 'crop', run: open('crop') },
+      { id: 'transform', label: 'Transformar', icon: 'move', run: open('transform') },
       { id: 'opacity', label: 'Opacidad', icon: 'opacity', run: open('opacity') },
       { id: 'chroma', label: 'Croma', icon: 'image', run: open('chroma') },
       { id: 'mute', label: (sel as MediaClip).muted ? 'Activar' : 'Silenciar', icon: (sel as MediaClip).muted ? 'volume' : 'mute', run: () => updateSelected<MediaClip>((c) => { c.muted = !c.muted; }), hidden: !isVideo || !asset?.hasAudio },
