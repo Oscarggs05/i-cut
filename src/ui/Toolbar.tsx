@@ -71,6 +71,7 @@ export function Toolbar() {
       { id: 'filters', label: 'Filtros', icon: 'filter', run: open('filters') },
       { id: 'adjust', label: 'Ajustar', icon: 'sliders', run: open('adjust') },
       { id: 'effects', label: 'Efectos', icon: 'sparkles', run: open('effects') },
+      { id: 'collage', label: 'Plantillas', icon: 'grid', run: open('collage') },
       { id: 'crop', label: 'Recortar', icon: 'crop', run: open('crop') },
       { id: 'transform', label: 'Transformar', icon: 'move', run: open('transform') },
       { id: 'opacity', label: 'Opacidad', icon: 'opacity', run: open('opacity') },
