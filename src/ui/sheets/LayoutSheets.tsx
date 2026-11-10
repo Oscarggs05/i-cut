@@ -65,6 +65,15 @@ export function CollageSheet() {
     setDraft(s);
     if (active) restyleCollage(active, s);
   };
+  /** Tapping a design does something right away: edit the collage, build one from the project's clips, or ask for files. */
+  const chooseTemplate = async (template: string) => {
+    const s = { ...draft, template };
+    setDraft(s);
+    if (active) { restyleCollage(active, s); return; }
+    if (looseClips >= 2) { collageFromClips(s); return; }
+    const files = await pickFiles('video/*,image/*');
+    if (files.length) await addCollageFiles(files, s, null);
+  };
   const pick = async (into: string | null) => {
     const files = await pickFiles('video/*,image/*');
     if (files.length) await addCollageFiles(files, draft, into);
@@ -75,7 +84,7 @@ export function CollageSheet() {
       <Chips options={COLLAGE_ASPECTS.map((a) => ({ id: a, label: a }))} value={draft.aspect} onChange={(aspect) => set({ aspect })} />
       <div className="grid collage-grid">
         {COLLAGES.map((t) => (
-          <button key={t.id} className={`cell ${draft.template === t.id ? 'on' : ''}`} onClick={() => set({ template: t.id })}>
+          <button key={t.id} className={`cell ${draft.template === t.id ? 'on' : ''}`} onClick={() => void chooseTemplate(t.id)}>
             <span className="sw"><CollagePreview id={t.id} ratio={ratio} gap={draft.gap} radius={draft.radius} color={draft.color} /></span>
             {t.name}
           </button>
@@ -106,8 +115,7 @@ export function CollageSheet() {
             </button>
           )}
           <p className="hint">
-            Se colocan en el orden en que los elijas y se reproducen a la vez, cada uno en su hueco.
-            {looseClips >= 2 && ' «Usar los clips de mi proyecto» junta los clips de la pista principal desde el cursor.'}
+            Toca un diseño: {looseClips >= 2 ? 'se aplica a los clips de tu pista principal (desde el cursor)' : 'te pedirá las fotos o vídeos'}. Se reproducen a la vez, cada uno en su hueco, y luego puedes cambiar el diseño cuando quieras.
           </p>
         </>
       )}
