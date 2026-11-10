@@ -4,7 +4,7 @@ import { deleteProject, listProjects, loadCover, saveCover, saveProject, storage
 import { formatTime, newProject, projectDuration, uid } from '../engine/timeline';
 import { Icon } from './icons';
 
-interface Props { onOpen: (p: Project, files?: File[]) => void; onPick: () => Promise<File[]> }
+interface Props { onOpen: (p: Project, files?: File[], sheet?: 'collage') => void; onPick: () => Promise<File[]> }
 
 const isStandalone = () =>
   window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -45,6 +45,13 @@ export function Home({ onOpen, onPick }: Props) {
     onOpen(p, files);
   };
 
+  const collage = async () => {
+    const n = (projects?.length ?? 0) + 1;
+    const p = newProject(`Collage ${n}`);
+    await saveProject(p);
+    onOpen(p, undefined, 'collage');
+  };
+
   const rename = async (p: Project) => {
     setMenu(null);
     const name = prompt('Nombre del proyecto', p.name);
@@ -76,6 +83,9 @@ export function Home({ onOpen, onPick }: Props) {
       </div>
       <button className="new-btn" onClick={create}>
         <span className="plus">+</span>Nuevo proyecto
+      </button>
+      <button className="new-btn alt" onClick={collage}>
+        <Icon name="grid" size={22} />Collage con plantillas
       </button>
 
       <div className="home-section">

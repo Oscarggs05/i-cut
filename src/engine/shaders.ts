@@ -39,6 +39,7 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.545
 
 uniform vec4 u_stab;
 uniform float u_stabOn, u_aspect;
+uniform float u_radius;
 
 vec2 toUV(vec2 l) {
   l = clamp(l, 0.0, 1.0);
@@ -169,6 +170,14 @@ void main() {
     rgb = hueRotate(rgb, t * 2.0 * a + v_local.y * 2.0 * a);
   } else if (u_effect == 13) {
     rgb = mix(rgb, 1.0 - rgb, a);
+  }
+
+  if (u_radius > 0.0) {
+    // Rounded corners, in displayed pixels.
+    vec2 size = 1.0 / u_px;
+    float r = u_radius * min(size.x, size.y);
+    vec2 q = abs((v_local - 0.5) * size) - (size * 0.5 - r);
+    alpha *= clamp(0.5 - (length(max(q, 0.0)) - r), 0.0, 1.0);
   }
 
   rgb = clamp(rgb, 0.0, 1.0);

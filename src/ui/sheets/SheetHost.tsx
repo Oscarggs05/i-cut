@@ -5,6 +5,7 @@ import {
 import { StickersSheet, TextSheet } from './TextSheets';
 import { CaptionsSheet, ChromaSheet } from './ExtraSheets';
 import { KeyframesSheet, StabilizeSheet } from './MotionSheets';
+import { CollageSheet, CropSheet } from './LayoutSheets';
 import { CleanupSheet, VoiceSheet } from './AudioFxSheets';
 import { AudioSheet, BackgroundSheet, CanvasSheet, RecordSheet, TransitionSheet } from './ProjectSheets';
 
@@ -35,6 +36,8 @@ export function SheetHost() {
     case 'stabilize': return <StabilizeSheet />;
     case 'voice': return <VoiceSheet />;
     case 'cleanup': return <CleanupSheet />;
+    case 'collage': return <CollageSheet />;
+    case 'crop': return <CropSheet />;
     default: return null;
   }
 }

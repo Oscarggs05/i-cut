@@ -267,6 +267,29 @@ input, textarea, select { font: inherit; color: inherit; -webkit-user-select: te
 .menu button.danger { color: var(--danger); }
 .menu .title { padding: 10px 20px; color: var(--muted); font-size: 13px; }
 
+/* ---------- Collage templates & crop ---------- */
+.collage-grid { margin: 8px 0 6px; }
+.collage-grid .cell { font-size: 10.5px; }
+.collage-grid svg { display: block; }
+.crop-wrap { --crop-h: 150px; display: flex; justify-content: center; align-items: flex-start; padding: 4px 0 10px; }
+.crop-stage { position: relative; flex: none; max-height: var(--crop-h); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; background: #000; border-radius: 6px; }
+.crop-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.crop-box { position: absolute; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); outline: 2px solid #fff; cursor: move; touch-action: none; }
+.crop-grid { position: absolute; inset: 0; pointer-events: none; background:
+  linear-gradient(90deg, transparent calc(33.33% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.33% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.66% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)),
+  linear-gradient(180deg, transparent calc(33.33% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.33% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.66% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)); }
+.crop-handle { position: absolute; width: 30px; height: 30px; touch-action: none; }
+.crop-handle::after { content: ''; position: absolute; width: 14px; height: 14px; border: 0 solid #fff; }
+.crop-handle.nw { left: -10px; top: -10px; cursor: nwse-resize; }
+.crop-handle.ne { right: -10px; top: -10px; cursor: nesw-resize; }
+.crop-handle.sw { left: -10px; bottom: -10px; cursor: nesw-resize; }
+.crop-handle.se { right: -10px; bottom: -10px; cursor: nwse-resize; }
+.crop-handle.nw::after { left: 8px; top: 8px; border-left-width: 4px; border-top-width: 4px; }
+.crop-handle.ne::after { right: 8px; top: 8px; border-right-width: 4px; border-top-width: 4px; }
+.crop-handle.sw::after { left: 8px; bottom: 8px; border-left-width: 4px; border-bottom-width: 4px; }
+.crop-handle.se::after { right: 8px; bottom: 8px; border-right-width: 4px; border-bottom-width: 4px; }
+.new-btn.alt { margin-top: 10px; padding: 14px 16px; font-size: 15px; font-weight: 600; background: var(--panel); border-color: var(--line); }
+
 /* ---------- Desktop ----------
    Only for large screens driven by a mouse or trackpad. Phones report
    (hover: none) and (pointer: coarse), so none of this reaches them. */
@@ -334,4 +357,6 @@ input, textarea, select { font: inherit; color: inherit; -webkit-user-select: te
   .tl-scrub { cursor: ew-resize; }
   .gesture { cursor: default; }
   .sel-box .h { cursor: pointer; }
+
+  .crop-wrap { --crop-h: 340px; }
 }

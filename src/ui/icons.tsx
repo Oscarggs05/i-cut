@@ -20,6 +20,8 @@ const P: Record<string, string> = {
   sticker: 'M12 2a10 10 0 1010 10h-6a4 4 0 01-4-4zM15.5 2.5l6 6M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01',
   layers: 'M12 2l10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5',
   crop: 'M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2',
+  grid: 'M3 3h8v11H3zM13 3h8v6h-8zM13 11h8v10h-8zM3 16h8v5H3z',
+  move: 'M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3',
   aspect: 'M3 5h18v14H3zM7 9v6M17 9v6',
   bg: 'M3 3h18v18H3zM3 15l5-5 4 4 3-3 6 6',
   anim: 'M5 12h3l3-8 4 16 3-8h3',

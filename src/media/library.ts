@@ -299,6 +299,32 @@ class Library {
     return images.length ? { times, images, aspect: images[0].width / images[0].height } : null;
   }
 
+  /** A still of the source at `t` seconds, for the crop editor (falls back to the nearest thumbnail). */
+  async still(asset: Asset, t: number, height = 540): Promise<CanvasImageSource | null> {
+    if (asset.kind === 'image') return this.image(asset.id);
+    if (asset.kind !== 'video') return null;
+    try {
+      const track = await this.input(asset.id).getPrimaryVideoTrack();
+      if (track && (await track.canDecode())) {
+        const sink = new CanvasSink(track, { height: Math.min(height, track.displayHeight || height), poolSize: 0 });
+        const wc = await sink.getCanvas(Math.max(0, Math.min(t, asset.duration - 0.05)));
+        if (wc) {
+          const c = document.createElement('canvas');
+          c.width = wc.canvas.width; c.height = wc.canvas.height;
+          c.getContext('2d')!.drawImage(wc.canvas as CanvasImageSource, 0, 0);
+          return c;
+        }
+      }
+    } catch (e) {
+      console.warn('still', e);
+    }
+    const th = await this.thumbnails(asset);
+    if (!th || !th.images.length) return null;
+    let best = 0;
+    th.times.forEach((x, i) => { if (Math.abs(x - t) < Math.abs(th.times[best] - t)) best = i; });
+    return th.images[best];
+  }
+
   /** JPEG cover for the project list. */
   async cover(asset: Asset): Promise<Blob | null> {
     const t = await this.thumbnails(asset);

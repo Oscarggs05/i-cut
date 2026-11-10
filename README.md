@@ -41,6 +41,8 @@ i-cut no se descarga de la App Store: se instala desde Safari en menos de un min
 - Línea de tiempo táctil: desliza para moverte, pellizca para hacer zoom, mantén pulsado un clip para moverlo y arrastra sus bordes para recortarlo.
 - Dividir, duplicar, eliminar, congelar fotograma, separar el audio y silenciar.
 - Vídeos superpuestos (vídeo dentro de vídeo) y pantalla verde para quitar el fondo.
+- **Plantillas de collage**: 13 diseños (2, 3, 4, 5, 6 y 9 huecos, mosaico, imagen en imagen) para juntar fotos y vídeos en una sola pantalla, con separación, esquinas redondeadas y color de fondo.
+- **Recortar** fotos y vídeos: elige la parte que se ve con proporción libre o fija (1:1, 4:5, 9:16, 16:9…) y redondea las esquinas.
 - Formatos para cada red: 9:16, 16:9, 1:1, 4:5 y más, con fondo desenfocado o de color.
 - Deshacer y rehacer cuando quieras.
 

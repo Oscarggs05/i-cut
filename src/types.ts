@@ -74,6 +74,14 @@ export interface Stabilize {
   path: number[];
 }
 
+/** Visible part of the source as fractions of its width/height (before flips). */
+export interface Crop {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface Anim {
   id: string;
   duration: number;
@@ -118,6 +126,10 @@ export interface MediaClip extends Visual {
   stab?: Stabilize | null;
   /** Voice changer preset (see engine/voice.ts). */
   voice?: string;
+  /** Shows only this part of the source. */
+  crop?: Crop | null;
+  /** Rounded corners as a fraction of the shorter side (0 to 0.5). */
+  radius?: number;
 }
 
 /** A spoken word, in seconds from the start of its text clip. */

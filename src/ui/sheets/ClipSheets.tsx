@@ -200,7 +200,7 @@ export function TransformSheet() {
   const cover = () => {
     if (!asset) return 1;
     const r = aspectRatio(project);
-    const ar = asset.width / asset.height;
+    const ar = (asset.width * (c.crop?.w ?? 1)) / (asset.height * (c.crop?.h ?? 1));
     return Math.max(r / ar, ar / r);
   };
   const t = { scale: valueAt(c, 'scale', local), rotation: valueAt(c, 'rotation', local) };
