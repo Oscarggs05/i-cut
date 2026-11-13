@@ -250,6 +250,20 @@ export class Player {
     }
   };
 
+  /** Resolves once the videos under the playhead show the right frame (or after `maxMs`). */
+  async settle(maxMs = 2500): Promise<void> {
+    const t0 = performance.now();
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+    await frame();
+    while (performance.now() - t0 < maxMs) {
+      const busy = [...this.videos.values()].some((v) => v.lastUse >= this.tick - 2 && (v.el.seeking || v.pending !== null || v.el.readyState < 2));
+      if (!busy) break;
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    await frame();
+    await frame();
+  }
+
   /** Grabs the frame of a clip at the current time as a PNG. */
   async snapshot(): Promise<Blob | null> {
     this.renderNow();

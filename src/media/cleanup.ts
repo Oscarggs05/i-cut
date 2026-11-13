@@ -141,14 +141,15 @@ export async function findCuts(p: Project, o: CleanupOptions, onProgress: (p: Ca
  * overlays and audio so they stay on the same moment. Returns the seconds
  * removed and the number of cuts.
  */
-export function applyCuts(d: Project, ranges: Range[]): { seconds: number; cuts: number } {
+export function applyCuts(d: Project, ranges: Range[], allClips = false): { seconds: number; cuts: number } {
   const applied: Range[] = [];
   const main: MediaClip[] = [];
   for (const l of layoutMain(d.main)) {
     const c = l.clip;
     const a = findAsset(d, c.assetId);
     // Clips with a speed curve are left whole: cutting them would change the curve's shape.
-    const audible = a?.kind === 'video' && a.hasAudio && !c.muted && c.volume > 0 && !c.curve;
+    // With `allClips` (a manual cut) every clip is cut, silent or not.
+    const audible = !c.curve && (allClips || (a?.kind === 'video' && a.hasAudio && !c.muted && c.volume > 0));
     // Transitions overlap neighbours; leave those stretches alone.
     const lo = l.start + l.transIn, hi = l.end - l.transOut;
     const mine = audible ? ranges.map(([x, y]): Range => [Math.max(x, lo), Math.min(y, hi)]).filter(([x, y]) => y - x > 0.05) : [];

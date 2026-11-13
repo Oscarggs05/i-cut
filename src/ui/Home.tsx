@@ -3,6 +3,8 @@ import type { Project } from '../types';
 import { deleteProject, listProjects, loadCover, saveCover, saveProject, storageEstimate } from '../store/db';
 import { formatTime, newProject, projectDuration, uid } from '../engine/timeline';
 import { Icon } from './icons';
+import { useSession } from '../store/session';
+import { ClaudeButton } from '../claude/ClaudeUI';
 
 interface Props { onOpen: (p: Project, files?: File[], sheet?: 'collage') => void; onPick: () => Promise<File[]> }
 
@@ -34,7 +36,8 @@ export function Home({ onOpen, onPick }: Props) {
     if (e) setUsage(`${fmtBytes(e.usage)} usados`);
   };
 
-  useEffect(() => { void refresh(); }, []);
+  const version = useSession((s) => s.projectsVersion);
+  useEffect(() => { void refresh(); }, [version]);
 
   const create = async () => {
     const files = await onPick();
@@ -80,6 +83,7 @@ export function Home({ onOpen, onPick }: Props) {
     <div className="home">
       <div className="home-head">
         <div className="logo"><span className="mark">✂</span>i-cut</div>
+        <ClaudeButton />
       </div>
       <button className="new-btn" onClick={create}>
         <span className="plus">+</span>Nuevo proyecto

@@ -82,6 +82,10 @@ Abre **https://i-cut.vercel.app** en Chrome, Edge o Safari en un PC o Mac. Con u
 - **Ratón:** arrastra un clip para moverlo o cambiarlo de orden, arrastra sus bordes para recortarlo y arrastra la regla para moverte por el vídeo. La rueda desplaza la línea de tiempo y **Ctrl + rueda** hace zoom. Sobre la vista previa, la rueda cambia el tamaño del elemento seleccionado y **Mayús + rueda** lo gira.
 - **Teclado:** **Espacio** reproduce o pausa, **← →** avanzan fotograma a fotograma (con **Mayús**, de segundo en segundo), **S** divide, **Supr** elimina, **Ctrl+D** duplica, **Ctrl+Z / Ctrl+Y** deshacen y rehacen, **+ / −** hacen zoom y **Esc** cierra el panel.
 
+## Que Claude edite por ti
+
+i-cut tiene un servidor MCP para que [Claude](https://claude.ai) maneje el editor: importa tus clips, corta, quita silencios, pone subtítulos, filtros, transiciones, textos animados, keyframes, collages y exporta. Lo hace sobre el proyecto que tienes abierto, así que ves cada cambio en directo (un aviso arriba te dice qué está haciendo) y puedes deshacer cualquier paso. Se conecta desde Claude Desktop o Claude Code en tu ordenador, y también desde claude.ai y el iPhone con un túnel. Cómo instalarlo: [mcp/README.md](mcp/README.md).
+
 ## Preguntas frecuentes
 
 **¿De verdad es gratis?** Sí. Sin suscripciones, sin compras dentro de la app y sin marca de agua en tus vídeos.

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
+import { initClaude } from './claude/bridge';
 
 // Block Safari's page zoom gestures; the editor has its own pinch handling.
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) {
@@ -50,3 +51,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* offline support is optional */ });
   });
 }
+
+// Reconnect to Claude's MCP server if it was connected last time (or the
+// link carries #claude=…).
+initClaude();

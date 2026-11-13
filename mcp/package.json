@@ -1,0 +1,26 @@
+{
+  "name": "i-cut-mcp",
+  "version": "0.1.0",
+  "description": "Servidor MCP que deja a Claude editar en directo el proyecto abierto en i-cut",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "i-cut-mcp": "server.mjs"
+  },
+  "files": [
+    "*.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "http": "node server.mjs --http"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "ws": "^8.23.0",
+    "zod": "^4.6.7"
+  }
+}

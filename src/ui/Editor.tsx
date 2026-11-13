@@ -9,6 +9,7 @@ import { Toolbar } from './Toolbar';
 import { SheetHost } from './sheets/SheetHost';
 import { ExportFlow } from './ExportFlow';
 import { JobOverlay, KeyframeButton } from './sheets/MotionSheets';
+import { ClaudeButton } from '../claude/ClaudeUI';
 
 export function Editor({ onClose }: { onClose: () => void }) {
   const project = useEditor((s) => s.project)!;
@@ -64,6 +65,7 @@ export function Editor({ onClose }: { onClose: () => void }) {
         <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {project.name}
         </div>
+        <ClaudeButton compact />
         <button className="export-btn" disabled={projectDuration(project) <= 0} onClick={() => { getPlayer()?.pause(); setExporting(true); }}>
           <Icon name="export" size={16} />Exportar
         </button>

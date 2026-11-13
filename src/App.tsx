@@ -1,34 +1,19 @@
-import { useState } from 'react';
-import type { Project } from './types';
 import { Home } from './ui/Home';
 import { Editor } from './ui/Editor';
-import { library } from './media/library';
-import { addMedia, pickFiles } from './store/actions';
+import { pickFiles } from './store/actions';
 import { useEditor } from './store/editor';
-import { requestPersistence } from './store/db';
+import { closeProject, openProject, useSession } from './store/session';
+import { ClaudeLayer } from './claude/ClaudeUI';
 
 export function App() {
   const project = useEditor((s) => s.project);
-  const [loading, setLoading] = useState(false);
-
-  const open = async (p: Project, files?: File[], sheet?: 'collage') => {
-    setLoading(true);
-    library.reset();
-    await library.load(p.assets);
-    for (const a of p.assets) { void library.thumbnails(a); void library.audioBuffer(a); }
-    useEditor.getState().open(p);
-    setLoading(false);
-    void requestPersistence();
-    if (files?.length) await addMedia(files, 'main');
-    if (sheet) useEditor.getState().setSheet(sheet);
-  };
-
-  const close = () => {
-    useEditor.getState().close();
-    library.reset();
-  };
-
-  if (loading) return <div className="busy"><div><span className="spinner" />Abriendo proyecto…</div></div>;
-  if (project) return <Editor onClose={close} />;
-  return <Home onOpen={open} onPick={() => pickFiles('video/*,image/*')} />;
+  const loading = useSession((s) => s.loading);
+  return (
+    <>
+      {loading ? <div className="busy"><div><span className="spinner" />Abriendo proyecto…</div></div>
+        : project ? <Editor onClose={closeProject} />
+          : <Home onOpen={(p, files, sheet) => void openProject(p, files, sheet)} onPick={() => pickFiles('video/*,image/*')} />}
+      <ClaudeLayer />
+    </>
+  );
 }

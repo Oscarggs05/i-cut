@@ -74,6 +74,8 @@ src/
   media/       importación de archivos, miniaturas, ondas de audio, efectos de sonido, subtítulos
   store/       estado del editor (zustand) con deshacer/rehacer, acciones e IndexedDB
   ui/          pantallas y paneles táctiles
+  claude/      conexión con el servidor MCP: cada herramienta de Claude se ejecuta aquí, sobre el proyecto abierto
+mcp/           servidor MCP para Claude (Node, stdio o HTTP) y puente WebSocket con el editor; ver mcp/README.md
 public/        manifiesto PWA, service worker e iconos
 ```
 
