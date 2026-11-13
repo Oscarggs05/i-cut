@@ -1,0 +1,59 @@
+/* Claude connection: button, panel, live activity pill and cards. */
+:root { --claude: #d97757; }
+
+.claude-btn {
+  display: inline-flex; align-items: center; gap: 6px; position: relative;
+  padding: 7px 12px; border-radius: 999px; background: var(--panel2); color: var(--text);
+  font-size: 14px; font-weight: 600;
+}
+.claude-btn svg { color: var(--claude); }
+.claude-btn.compact { width: 36px; height: 36px; padding: 0; justify-content: center; }
+.claude-btn .dot, .claude-status .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none;
+}
+.claude-btn.compact .dot { position: absolute; right: 3px; top: 3px; width: 9px; height: 9px; border: 2px solid var(--bg); }
+.claude-btn.connected .dot, .claude-status.connected .dot { background: #34c759; }
+.claude-btn.connecting .dot, .claude-status.connecting .dot { background: #ffcc00; }
+.claude-btn.error .dot, .claude-status.error .dot { background: var(--danger); }
+.claude-btn.off .dot { display: none; }
+
+.claude-head { display: flex; justify-content: space-between; align-items: center; }
+.claude-head h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.claude-head h3 svg, .modal h3 svg { color: var(--claude); vertical-align: -3px; }
+.claude-status { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 8px 0 4px; }
+.claude-url { min-height: 0; height: 44px; font-family: ui-monospace, Menlo, monospace; font-size: 14px; }
+.claude-log { list-style: none; margin: 6px 0 0; padding: 0; max-height: 34vh; overflow-y: auto; }
+.claude-log li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: start; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.claude-log .ic { display: grid; place-items: center; height: 18px; color: #34c759; font-weight: 700; }
+.claude-log .ic .spinner { width: 14px; height: 14px; border-width: 2px; }
+.claude-log li.error .ic { color: var(--danger); }
+.claude-log .lb small { display: block; color: var(--muted); margin-top: 2px; }
+.claude-log time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.claude-help { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.claude-help summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.claude-help ol { padding-left: 18px; }
+.claude-help li { margin: 6px 0; }
+.claude-help code { background: var(--panel2); padding: 1px 5px; border-radius: 5px; font-size: 12px; word-break: break-all; }
+
+/* What Claude is doing now, always on top so the user can follow along. */
+.claude-pill {
+  position: fixed; z-index: 80; left: 50%; top: calc(var(--sat) + 52px); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 7px; max-width: min(92vw, 560px);
+  padding: 8px 14px; border-radius: 999px; font-size: 13px;
+  background: rgba(30, 24, 22, 0.94); border: 1px solid rgba(217, 119, 87, 0.55);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); animation: claude-in 0.18s ease-out; cursor: pointer;
+}
+.claude-pill svg { color: var(--claude); flex: none; }
+.claude-pill.running svg { animation: spin 1.6s linear infinite; }
+.claude-pill .who { font-weight: 700; color: var(--claude); flex: none; }
+.claude-pill .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.claude-pill.done { border-color: rgba(52, 199, 89, 0.5); }
+.claude-pill.error { border-color: var(--danger); }
+@keyframes claude-in { from { opacity: 0; transform: translate(-50%, -6px); } }
+
+.claude-front { z-index: 90; }
+
+@media (hover: hover) and (pointer: fine) {
+  .claude-btn:hover { background: var(--panel3); }
+  .claude-pill { top: 64px; }
+}

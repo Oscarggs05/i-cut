@@ -1,4 +1,4 @@
-import type { AspectId, MediaClip, Project, Selection } from '../types';
+import type { AspectId, Asset, MediaClip, Project, Selection } from '../types';
 import { library } from '../media/library';
 import { aspectRatio, clipDuration, layoutMain, newMediaClip, uid } from '../engine/timeline';
 import { collageById, fitClipToCell } from '../engine/collage';
@@ -113,17 +113,22 @@ function report(id: string, extra: number) {
  */
 export async function addCollageFiles(files: File[], s: CollageStyle, into: string | null) {
   const assets = (await importFiles(files)).filter((a) => a.kind !== 'audio');
-  if (!assets.length) return;
+  if (assets.length) addCollageAssets(assets, s, into);
+}
+
+/** Same as addCollageFiles for media already imported (assets may already be in the project). */
+export function addCollageAssets(assets: Asset[], s: CollageStyle, into: string | null): string | null {
+  if (!assets.length) return null;
   const p0 = S().project!;
   const existing = into ? collageClips(p0, into) : [];
   const free = collageById(s.template).cells.length - existing.length;
   const used = assets.slice(0, Math.max(0, free));
-  if (!used.length) { S().showToast('Esta plantilla ya está llena: elige una con más huecos'); return; }
+  if (!used.length) { S().showToast('Esta plantilla ya está llena: elige una con más huecos'); return null; }
   const id = into ?? uid();
   let start = 0;
   let mainId = existing[0]?.id ?? '';
   S().update((d) => {
-    d.assets.push(...assets);
+    d.assets.push(...assets.filter((a) => !d.assets.some((x) => x.id === a.id)));
     const firstMain = existing.length ? d.main.find((c) => c.id === existing[0].id)! : null;
     start = firstMain ? collageStart(d, id) : (layoutMain(d.main).at(-1)?.end ?? 0);
     const duration = firstMain ? clipDuration(firstMain) : commonDuration(used.map((a) => ({ kind: a.kind, dur: a.duration })));
@@ -144,6 +149,7 @@ export async function addCollageFiles(files: File[], s: CollageStyle, into: stri
   S().setSheet('collage');
   report(id, assets.length - used.length);
   void refreshCover();
+  return id;
 }
 
 /**

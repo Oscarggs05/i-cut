@@ -14,7 +14,7 @@ import { TranscribeProgress } from './ExtraSheets';
 const S = () => useEditor.getState();
 
 /** Prepares the stretched audio a pitch voice plays, so the preview doesn't stall on it. */
-async function prepareVoice(assetIds: string[], id: string) {
+export async function prepareVoice(assetIds: string[], id: string) {
   const r = voicePitch(id);
   if (r === 1) return;
   const p = S().project!;
