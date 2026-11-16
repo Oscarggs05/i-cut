@@ -40,7 +40,17 @@ export class Player {
     this.loop();
   }
 
-  invalidate = () => { this.dirty = true; };
+  /** Assets whose sound wasn't decoded yet when playback (re)started. */
+  private missingAudio = new Set<string>();
+
+  invalidate = () => {
+    this.dirty = true;
+    // Audio is decoded a couple of files at a time, so a clip can become
+    // audible while playing: reschedule the mix when it does.
+    if (this.playing && this.missingAudio.size && [...this.missingAudio].some((id) => library.audioNow(id) !== undefined)) {
+      this.restartAudio();
+    }
+  };
   private onFonts = () => { clearTextCache(); this.dirty = true; };
 
   setProject(p: Project) {
@@ -118,7 +128,10 @@ export class Player {
     if (!this.master) { this.master = ctx.createGain(); this.master.connect(ctx.destination); }
     const dest = this.audioDest ?? this.master;
     const segs = audioSegments(this.project);
-    for (const s of segs) if (!library.audioNow(s.asset.id)) void library.audioBuffer(s.asset);
+    this.missingAudio.clear();
+    for (const s of segs) {
+      if (library.audioNow(s.asset.id) === undefined) { this.missingAudio.add(s.asset.id); void library.audioBuffer(s.asset); }
+    }
     this.nodes = scheduleMix(ctx, dest, segs, (a) => library.audioNow(a.id), this.time, ctx.currentTime + 0.03);
   }
 

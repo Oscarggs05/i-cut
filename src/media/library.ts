@@ -48,6 +48,27 @@ function mediaElementInfo(url: string, kind: 'video' | 'audio'): Promise<{ durat
   });
 }
 
+/**
+ * Runs at most `size` tasks at once. Importing 200 videos used to start 200
+ * thumbnail and audio decoders together, which the iPhone's few hardware
+ * decoders and its memory can't take.
+ */
+class Pool {
+  private active = 0;
+  private waiting: (() => void)[] = [];
+  constructor(private size: number) {}
+  async run<T>(task: () => Promise<T>): Promise<T> {
+    if (this.active >= this.size) await new Promise<void>((r) => this.waiting.push(r));
+    this.active++;
+    try {
+      return await task();
+    } finally {
+      this.active--;
+      this.waiting.shift()?.();
+    }
+  }
+}
+
 export interface Thumbs { times: number[]; images: (HTMLCanvasElement | ImageBitmap)[]; aspect: number }
 
 class Library {
@@ -61,6 +82,8 @@ class Library {
   private thumbsReady = new Map<string, Thumbs>();
   private inputs = new Map<string, Input>();
   private peakCache = new Map<string, Float32Array>();
+  private thumbPool = new Pool(2);
+  private audioPool = new Pool(2);
   listeners = new Set<() => void>();
 
   private emit() { for (const l of this.listeners) l(); }
@@ -78,21 +101,20 @@ class Library {
       width = img.width;
       height = img.height;
     } else {
+      // One pass over the container gives duration, size and audio; the
+      // media element is only a fallback for files the demuxer can't read.
       try {
-        const info = await mediaElementInfo(url, kind);
-        duration = info.duration; width = info.width; height = info.height;
-      } catch {
-        // Fall back to the demuxer for files the media element refuses.
         const input = this.input(id);
         duration = await input.computeDuration();
         const vt = await input.getPrimaryVideoTrack();
         if (vt) { width = await vt.getDisplayWidth(); height = await vt.getDisplayHeight(); }
-      }
-      if (kind === 'video') {
-        try {
-          const at = await this.input(id).getPrimaryAudioTrack();
-          hasAudio = !!at;
-        } catch { /* assume audio */ }
+        if (kind === 'video') hasAudio = !!(await input.getPrimaryAudioTrack());
+        if (kind === 'video' && !vt) throw new Error('no video track');
+        if (!isFinite(duration) || duration <= 0) throw new Error('no duration');
+      } catch {
+        const info = await mediaElementInfo(url, kind);
+        duration = info.duration; width = info.width; height = info.height;
+        hasAudio = true;
       }
     }
     if (!isFinite(duration) || duration <= 0) {
@@ -159,7 +181,7 @@ class Library {
   audioBuffer(asset: Asset): Promise<AudioBuffer | null> {
     let p = this.audio.get(asset.id);
     if (!p) {
-      p = this.decodeAudio(asset).catch((e) => { console.warn('audio decode', e); return null; });
+      p = this.audioPool.run(() => this.decodeAudio(asset)).catch((e) => { console.warn('audio decode', e); return null; });
       p.then((b) => { this.audioReady.set(asset.id, b); this.emit(); });
       this.audio.set(asset.id, p);
     }
@@ -230,7 +252,7 @@ class Library {
   thumbnails(asset: Asset): Promise<Thumbs | null> {
     let p = this.thumbs.get(asset.id);
     if (!p) {
-      p = this.makeThumbs(asset).catch((e) => { console.warn('thumbs', e); return null; });
+      p = this.thumbPool.run(() => this.makeThumbs(asset)).catch((e) => { console.warn('thumbs', e); return null; });
       p.then((t) => { if (t) { this.thumbsReady.set(asset.id, t); this.emit(); } });
       this.thumbs.set(asset.id, p);
     }

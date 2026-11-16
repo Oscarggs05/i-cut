@@ -34,18 +34,31 @@ export function mainIndexAt(p: Project, t: number): number {
   return i >= 0 ? i : l.length - 1;
 }
 
+/** Files read and stored at the same time while importing. */
+const IMPORT_CONCURRENCY = 3;
+
 export async function importFiles(files: File[]): Promise<Asset[]> {
-  const out: Asset[] = [];
-  for (const [i, f] of files.entries()) {
-    S().setBusy(files.length > 1 ? `Importando ${i + 1} de ${files.length}…` : 'Importando…');
-    try {
-      out.push(await library.import(f));
-    } catch (e) {
-      S().showToast((e as Error).message);
+  // A few at a time so reading one file overlaps with saving another;
+  // results keep the order the files were picked in.
+  const results: (Asset | null)[] = new Array(files.length).fill(null);
+  let next = 0, done = 0;
+  const status = () => S().setBusy(files.length > 1 ? `Importando ${Math.min(done + 1, files.length)} de ${files.length}…` : 'Importando…');
+  status();
+  const worker = async () => {
+    while (next < files.length) {
+      const i = next++;
+      try {
+        results[i] = await library.import(files[i]);
+      } catch (e) {
+        S().showToast((e as Error).message);
+      }
+      done++;
+      status();
     }
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(IMPORT_CONCURRENCY, files.length) }, worker));
   S().setBusy(null);
-  return out;
+  return results.filter((a): a is Asset => !!a);
 }
 
 export async function refreshCover() {
