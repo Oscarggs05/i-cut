@@ -15,6 +15,7 @@ export function Editor({ onClose }: { onClose: () => void }) {
   const project = useEditor((s) => s.project)!;
   const sheet = useEditor((s) => s.sheet);
   const busy = useEditor((s) => s.busy);
+  const importing = useEditor((s) => s.importing);
   const toast = useEditor((s) => s.toast);
   const [exporting, setExporting] = useState(false);
 
@@ -79,6 +80,7 @@ export function Editor({ onClose }: { onClose: () => void }) {
       </div>
       {exporting && <ExportFlow onClose={() => setExporting(false)} />}
       <JobOverlay />
+      {importing && <div className="import-pill"><span className="spinner" />{importing}</div>}
       {busy && <div className="busy"><div><span className="spinner" />{busy}</div></div>}
       {toast && <div className="toast">{toast}</div>}
     </div>
