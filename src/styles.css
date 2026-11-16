@@ -258,6 +258,8 @@ input, textarea, select { font: inherit; color: inherit; -webkit-user-select: te
 .result-video { width: 100%; max-height: 52vh; border-radius: 12px; background: #000; display: block; }
 .busy { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.55); display: grid; place-items: center; }
 .busy > div { background: var(--panel2); padding: 18px 22px; border-radius: 14px; display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.import-pill { position: fixed; top: calc(var(--sat) + 52px); left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; background: rgba(40, 40, 44, 0.92); font-size: 13px; pointer-events: none; white-space: nowrap; }
+.import-pill .spinner { width: 16px; height: 16px; border-width: 2px; }
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--panel3); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .toast { position: fixed; left: 50%; bottom: calc(var(--sab) + 120px); transform: translateX(-50%); background: rgba(40, 40, 44, 0.96); padding: 10px 16px; border-radius: 12px; z-index: 70; font-size: 13px; max-width: 86vw; text-align: center; animation: fade 0.15s; }

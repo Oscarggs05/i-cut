@@ -24,10 +24,12 @@ interface EditorState {
   pxPerSec: number;
   toast: string | null;
   busy: string | null;
+  /** Non-blocking import progress shown over the editor. */
+  importing: string | null;
   open: (p: Project) => void;
   close: () => void;
   /** Applies an edit. Edits with the same `key` within a second merge into one undo step. */
-  update: (fn: (draft: Project) => void, key?: string) => void;
+  update: (fn: (draft: Project) => void, key?: string, mergeAlways?: boolean) => void;
   undo: () => void;
   redo: () => void;
   select: (s: Selection) => void;
@@ -36,6 +38,7 @@ interface EditorState {
   setZoom: (pps: number) => void;
   showToast: (msg: string) => void;
   setBusy: (msg: string | null) => void;
+  setImporting: (msg: string | null) => void;
 }
 
 let player: Player | null = null;
@@ -61,20 +64,22 @@ export const useEditor = create<EditorState>((set, get) => ({
   pxPerSec: 60,
   toast: null,
   busy: null,
+  importing: null,
   open: (p) => set({ project: p, past: [], future: [], selection: null, sheet: null, time: 0, playing: false, lastKey: null }),
   close: () => {
     const p = get().project;
     if (p) { clearTimeout(saveTimer); void saveProject(p); }
     set({ project: null, past: [], future: [], selection: null, sheet: null });
   },
-  update: (fn, key) => {
+  update: (fn, key, mergeAlways) => {
     const s = get();
     if (!s.project) return;
     const draft = structuredClone(s.project);
     fn(draft);
     draft.updatedAt = Date.now();
     const now = performance.now();
-    const merge = key && key === s.lastKey && now - s.lastAt < 1200;
+    // `mergeAlways` keeps a long run of edits (a big import) as one undo step.
+    const merge = key && key === s.lastKey && (mergeAlways || now - s.lastAt < 1200);
     const past = merge ? s.past : [...s.past, s.project].slice(-HISTORY);
     set({ project: draft, past, future: [], lastKey: key ?? null, lastAt: now });
     player?.setProject(draft);
@@ -105,4 +110,5 @@ export const useEditor = create<EditorState>((set, get) => ({
     setTimeout(() => { if (get().toast === toast) set({ toast: null }); }, 2200);
   },
   setBusy: (busy) => set({ busy }),
+  setImporting: (importing) => set({ importing }),
 }));

@@ -37,18 +37,29 @@ export function mainIndexAt(p: Project, t: number): number {
 /** Files read and stored at the same time while importing. */
 const IMPORT_CONCURRENCY = 3;
 
-export async function importFiles(files: File[]): Promise<Asset[]> {
+/**
+ * Imports `files`, a few at a time. `onAsset` gets each one as soon as it is
+ * ready (with its position in `files`), so callers can show it right away.
+ * Progress is shown in a pill that doesn't block the editor.
+ */
+export async function importFiles(files: File[], onAsset?: (asset: Asset, index: number) => void): Promise<Asset[]> {
   // A few at a time so reading one file overlaps with saving another;
   // results keep the order the files were picked in.
   const results: (Asset | null)[] = new Array(files.length).fill(null);
   let next = 0, done = 0;
-  const status = () => S().setBusy(files.length > 1 ? `Importando ${Math.min(done + 1, files.length)} de ${files.length}…` : 'Importando…');
+  // Stop if the user leaves this project while the import is running.
+  const projectId = S().project?.id;
+  const alive = () => S().project?.id === projectId;
+  const status = () => S().setImporting(files.length > 1 ? `Importando ${done} de ${files.length}…` : 'Importando…');
   status();
   const worker = async () => {
-    while (next < files.length) {
+    while (next < files.length && alive()) {
       const i = next++;
       try {
-        results[i] = await library.import(files[i]);
+        const a = await library.import(files[i]);
+        if (!alive()) break;
+        results[i] = a;
+        try { onAsset?.(a, i); } catch (e) { console.error(e); }
       } catch (e) {
         S().showToast((e as Error).message);
       }
@@ -56,8 +67,12 @@ export async function importFiles(files: File[]): Promise<Asset[]> {
       status();
     }
   };
-  await Promise.all(Array.from({ length: Math.min(IMPORT_CONCURRENCY, files.length) }, worker));
-  S().setBusy(null);
+  try {
+    await Promise.all(Array.from({ length: Math.min(IMPORT_CONCURRENCY, files.length) }, worker));
+  } finally {
+    S().setImporting(null);
+  }
+  if (!alive()) return [];
   return results.filter((a): a is Asset => !!a);
 }
 
@@ -71,39 +86,56 @@ export async function refreshCover() {
 }
 
 export async function addMedia(files: File[], target: 'main' | 'overlay') {
-  const assets = await importFiles(files);
-  if (!assets.length) return;
+  const p0 = S().project;
+  if (!p0) return;
   const t = S().time;
-  let firstId: string | null = null;
-  S().update((d) => {
-    d.assets.push(...assets);
-    const media = assets.filter((a) => a.kind !== 'audio');
-    const audio = assets.filter((a) => a.kind === 'audio');
-    if (target === 'main') {
-      const layout = layoutMain(d.main);
-      // Insert after the clip under the playhead (or at the closest edge).
-      let at = d.main.length;
-      const i = layout.findIndex((x) => t >= x.start && t < x.end);
-      if (i >= 0) at = t - layout[i].start < (layout[i].end - layout[i].start) / 2 ? i : i + 1;
-      const clips = media.map(newMediaClip);
-      d.main.splice(at, 0, ...clips);
-      firstId = clips[0]?.id ?? null;
-    } else {
-      for (const a of media) {
-        const c = newMediaClip(a);
+  // Where the batch goes on the main track: after the clip under the
+  // playhead (or at the closest edge).
+  const layout0 = layoutMain(p0.main);
+  let at = p0.main.length;
+  const hit = layout0.findIndex((x) => t >= x.start && t < x.end);
+  if (hit >= 0) at = t - layout0[hit].start < (layout0[hit].end - layout0[hit].start) / 2 ? hit : hit + 1;
+  const batch = 'import:' + uid();
+  // Clip id per picked-file index, to keep pick order while files finish in any order.
+  const placed = new Map<number, string>();
+  let firstOverlay: string | null = null;
+  let covered = false;
+
+  const add = (a: Asset, i: number) => {
+    S().update((d) => {
+      d.assets.push(a);
+      if (a.kind === 'audio') { d.audios.push(newAudioClip(a, t)); return; }
+      const c = newMediaClip(a);
+      placed.set(i, c.id);
+      if (target === 'overlay') {
         c.start = t;
         c.transform.scale = 0.5;
         d.overlays.push(c);
-        firstId = c.id;
+        firstOverlay ??= c.id;
+        return;
       }
-    }
-    for (const a of audio) d.audios.push(newAudioClip(a, t));
-  });
-  for (const a of assets) {
+      // Right after the nearest earlier pick that is on the track, else right
+      // before the nearest later one, else at the original spot.
+      let pos = -1;
+      for (let j = i - 1; j >= 0 && pos < 0; j--) {
+        const k = placed.has(j) ? d.main.findIndex((x) => x.id === placed.get(j)) : -1;
+        if (k >= 0) pos = k + 1;
+      }
+      for (let j = i + 1; j < files.length && pos < 0; j++) {
+        const k = placed.has(j) ? d.main.findIndex((x) => x.id === placed.get(j)) : -1;
+        if (k >= 0) pos = k;
+      }
+      if (pos < 0) pos = Math.min(at, d.main.length);
+      d.main.splice(pos, 0, c);
+    }, batch, true);
     void library.thumbnails(a);
     void library.audioBuffer(a);
-  }
-  if (firstId && target === 'overlay') S().select({ kind: 'overlay', id: firstId });
+    if (!covered && a.kind !== 'audio') { covered = true; void refreshCover(); }
+  };
+
+  const assets = await importFiles(files, add);
+  if (!assets.length) return;
+  if (firstOverlay && target === 'overlay') S().select({ kind: 'overlay', id: firstOverlay });
   void refreshCover();
 }
 
