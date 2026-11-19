@@ -1,8 +1,36 @@
-# i-cut
+<h1 align="center">i-cut</h1>
+
+<p align="center"><b>Editor de vídeo gratuito y de código abierto para iPhone y PC que funciona en el navegador, sin subir tus vídeos a ningún sitio.</b></p>
+
+<p align="center">
+  <a href="https://i-cut.vercel.app"><b>▶ Pruébalo ahora: i-cut.vercel.app</b></a>
+  ·
+  <a href="#cómo-instalarla-en-tu-iphone">Instalar en el iPhone</a>
+  ·
+  <a href="CONTRIBUTING.md">Contribuir</a>
+  ·
+  <a href="#in-english">English</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Oscarggs05/i-cut/actions/workflows/ci.yml"><img src="https://github.com/Oscarggs05/i-cut/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licencia-MIT-blue.svg" alt="Licencia MIT"></a>
+  <a href="https://github.com/Oscarggs05/i-cut/releases"><img src="https://img.shields.io/github/v/release/Oscarggs05/i-cut?label=versi%C3%B3n" alt="Última versión"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/demo.gif" width="300" alt="Demostración: crear un proyecto con tres clips, reproducirlo, aplicar un filtro y añadir un texto">
+</p>
 
 **i-cut es un editor de vídeo gratuito para iPhone.** Corta, une y monta tus vídeos y fotos, añade música, textos, subtítulos automáticos, filtros, efectos y transiciones, y guarda el resultado en tu carrete en hasta 4K.
 
 Todo ocurre dentro de tu iPhone: tus vídeos no se suben a ningún sitio. No hay marcas de agua, no necesitas cuenta y no hay nada que pagar.
+
+**Para usarla no hay que instalar nada:** abre [i-cut.vercel.app](https://i-cut.vercel.app). **Para ejecutarla en tu ordenador**, con Node 22, basta una línea:
+
+```bash
+git clone https://github.com/Oscarggs05/i-cut.git && cd i-cut && npm install && npm run dev
+```
 
 <p align="center">
   <img src="docs/images/app-inicio.jpg" width="200" alt="Pantalla de inicio de i-cut con un proyecto">
@@ -98,8 +126,16 @@ i-cut tiene un servidor MCP para que [Claude](https://claude.ai) maneje el edito
 
 **¿Dónde están mis proyectos?** Guardados dentro del iPhone, en la propia app. Si borras i-cut de la pantalla de inicio, sus proyectos se borran también; los vídeos que ya hayas exportado a Fotos no.
 
+## In English
+
+**i-cut is a free, open-source video editor for iPhone and desktop that runs in the browser.** Trim, join and arrange clips, add music, text, automatic captions (on-device Whisper), filters, effects, keyframes and transitions, then export MP4 up to 4K. Everything is processed on your device with WebGL2 and WebCodecs: no uploads, no account, no watermark.
+
+- Try it: **https://i-cut.vercel.app** (on iPhone, open it in Safari and use *Share → Add to Home Screen*).
+- Run it locally (Node 22): `git clone https://github.com/Oscarggs05/i-cut.git && cd i-cut && npm install && npm run dev`
+- The app UI and docs are in Spanish for now. Issues and pull requests in English are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ---
 
-¿Quieres colaborar o ver cómo está hecha? Consulta [DEVELOPING.md](DEVELOPING.md).
+¿Quieres colaborar? Lee [CONTRIBUTING.md](CONTRIBUTING.md). Para ver cómo está hecha por dentro, consulta [DEVELOPING.md](DEVELOPING.md). Los cambios de cada versión están en el [CHANGELOG](CHANGELOG.md).
 
 Código bajo licencia [MIT](LICENSE).

@@ -1,0 +1,26 @@
+name: Proponer una mejora
+description: Una función nueva o una forma mejor de hacer algo
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué quieres conseguir?
+      description: Cuéntalo desde lo que intentas hacer con tu vídeo, no desde la solución.
+      placeholder: "Quiero poner los mismos subtítulos en inglés y en español..."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: ¿Cómo te imaginas que funcionaría?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: ¿Lo has resuelto de otra forma o lo has visto en otra app?
+  - type: checkboxes
+    id: help
+    attributes:
+      label: ¿Te animas a hacerlo?
+      options:
+        - label: Me gustaría intentar programarlo yo
