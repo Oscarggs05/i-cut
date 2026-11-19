@@ -1,0 +1,57 @@
+name: Informar de un error
+description: Algo no funciona como debería
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por avisar. Cuantos más detalles, antes se puede arreglar. *Issues in English are welcome too.*
+  - type: textarea
+    id: what
+    attributes:
+      label: ¿Qué ha pasado?
+      description: Describe el error y qué esperabas que ocurriera.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducirlo
+      placeholder: |
+        1. Crea un proyecto con un vídeo vertical
+        2. Pulsa Exportar en 1080p
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Dispositivo
+      options:
+        - iPhone
+        - iPad
+        - Android
+        - PC con Windows
+        - Mac
+        - Linux
+        - Otro
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Sistema y navegador
+      placeholder: "iOS 18.1, Safari (instalada en la pantalla de inicio)"
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Capturas, vídeo o archivo de ejemplo
+      description: Si el problema depende de un vídeo concreto, indica su formato, resolución y duración. No subas vídeos privados.
+  - type: textarea
+    id: console
+    attributes:
+      label: Errores de la consola (opcional)
+      description: Si puedes abrir la consola del navegador, pega aquí los mensajes en rojo.
+      render: text
